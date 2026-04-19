@@ -1,0 +1,197 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Navy Blue Dark Theme */
+    --background: 220 45% 8%;
+    --foreground: 210 40% 95%;
+
+    --card: 220 40% 12%;
+    --card-foreground: 210 40% 95%;
+
+    --popover: 220 40% 12%;
+    --popover-foreground: 210 40% 95%;
+
+    --primary: 43 85% 55%;
+    --primary-foreground: 220 45% 8%;
+
+    --secondary: 220 35% 18%;
+    --secondary-foreground: 210 40% 85%;
+
+    --muted: 220 35% 16%;
+    --muted-foreground: 215 25% 55%;
+
+    --accent: 220 35% 20%;
+    --accent-foreground: 210 40% 90%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 220 30% 22%;
+    --input: 220 35% 16%;
+    --ring: 43 85% 55%;
+
+    --radius: 1rem;
+
+    /* Custom bank colors */
+    --navy: 220 60% 15%;
+    --navy-light: 220 50% 20%;
+    --navy-dark: 220 65% 8%;
+    --gold: 43 85% 55%;
+    --gold-light: 43 90% 65%;
+    --gold-dark: 38 80% 42%;
+    --success: 142 70% 45%;
+    --danger: 0 72% 51%;
+
+    --sidebar-background: 220 45% 10%;
+    --sidebar-foreground: 210 40% 90%;
+    --sidebar-primary: 43 85% 55%;
+    --sidebar-primary-foreground: 220 45% 8%;
+    --sidebar-accent: 220 35% 18%;
+    --sidebar-accent-foreground: 210 40% 90%;
+    --sidebar-border: 220 30% 20%;
+    --sidebar-ring: 43 85% 55%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'Inter', sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  h1, h2, h3 {
+    font-family: 'Inter', sans-serif;
+  }
+}
+
+@layer components {
+  /* iOS 26 style glass cards */
+  .glass-card {
+    @apply rounded-3xl border border-white/10 backdrop-blur-xl;
+    background: rgba(255, 255, 255, 0.05);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  }
+
+  .navy-card {
+    background: hsl(220, 50%, 16%);
+    @apply rounded-3xl border border-white/10;
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+  }
+
+  .gold-btn {
+    background: linear-gradient(135deg, hsl(43, 90%, 60%) 0%, hsl(38, 85%, 48%) 100%);
+    @apply text-gray-900 font-semibold rounded-2xl transition-all duration-200;
+    box-shadow: 0 4px 16px rgba(200, 155, 50, 0.35);
+  }
+
+  .gold-btn:hover {
+    background: linear-gradient(135deg, hsl(43, 95%, 65%) 0%, hsl(38, 90%, 54%) 100%);
+    box-shadow: 0 6px 20px rgba(200, 155, 50, 0.5);
+    transform: translateY(-1px);
+  }
+
+  .gold-btn:active {
+    transform: translateY(0);
+  }
+
+  .dark-input {
+    background: hsl(220, 45%, 10%);
+    @apply border border-white/10 text-white rounded-2xl px-4 py-3 w-full outline-none focus:border-yellow-500/50 transition-colors placeholder:text-gray-500;
+  }
+
+  .bottom-nav {
+    background: hsl(220, 55%, 12%);
+    @apply border-t border-white/10 backdrop-blur-xl;
+    box-shadow: 0 -4px 24px rgba(0,0,0,0.4);
+  }
+
+  .nav-badge {
+    @apply absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold;
+    min-width: 1.25rem;
+  }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar {
+    width: 4px;
+  }
+  ::-webkit-scrollbar-track {
+    background: hsl(220, 45%, 8%);
+  }
+  ::-webkit-scrollbar-thumb {
+    background: hsl(220, 35%, 25%);
+    border-radius: 2px;
+  }
+
+  /* iOS spring animation */
+  .spring-tap {
+    @apply transition-transform duration-150 active:scale-95;
+  }
+
+  .pulse-gold {
+    animation: pulseGold 2s infinite;
+  }
+
+  @keyframes pulseGold {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(200, 155, 50, 0.4); }
+    50% { box-shadow: 0 0 0 8px rgba(200, 155, 50, 0); }
+  }
+
+  /* Transaction receipt */
+  .receipt-card {
+    background: hsl(220, 50%, 14%);
+    @apply rounded-3xl border border-white/10 p-4;
+  }
+
+  /* Frozen/Closed overlays */
+  .frozen-overlay {
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.15) 0%, rgba(37, 99, 235, 0.1) 100%);
+    @apply border border-blue-400/30 rounded-3xl;
+  }
+
+  .closed-overlay {
+    background: linear-gradient(135deg, rgba(239, 68, 68, 0.15) 0%, rgba(185, 28, 28, 0.1) 100%);
+    @apply border border-red-400/30 rounded-3xl;
+  }
+}
+
+/* Scrollable containers */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Typing dots animation */
+.typing-dot {
+  animation: typingBounce 1.4s infinite ease-in-out;
+}
+.typing-dot:nth-child(2) { animation-delay: 0.2s; }
+.typing-dot:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes typingBounce {
+  0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+  30% { transform: translateY(-6px); opacity: 1; }
+}
+
+/* Shimmer loading */
+.shimmer {
+  background: linear-gradient(90deg, hsl(220,40%,14%) 25%, hsl(220,40%,18%) 50%, hsl(220,40%,14%) 75%);
+  background-size: 400% 100%;
+  animation: shimmer 1.5s infinite;
+}
+@keyframes shimmer {
+  0% { background-position: 100% 0; }
+  100% { background-position: -100% 0; }
+}
