@@ -3,7 +3,7 @@ import { ArrowLeft, Send, Search } from "lucide-react";
 import { supabase, type BankingMessage, type Account } from "@/lib/supabase";
 import { formatDateTime, getInitials } from "@/lib/utils";
 import { usePolling } from "@/hooks/usePolling";
-import bankLogo from "@/assets/bankunited-logo.png";
+import bankLogo from "@/assets/bankunited-logo.jpg";
 
 interface Props {
   accounts: Account[];

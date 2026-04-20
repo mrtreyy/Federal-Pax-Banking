@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase, trackLogin } from "@/lib/supabase";
 import { toast } from "sonner";
 import bankHero from "@/assets/bank-hero.jpg";
-import bankLogo from "@/assets/bankunited-logo.png";
+import bankLogo from "@/assets/bankunited-logo.jpg";
 import { Eye, EyeOff, Star, Shield, Globe, Lock, CheckCircle, XCircle, RefreshCw, Building2, TrendingUp, MapPin } from "lucide-react";
 
 const testimonials = [

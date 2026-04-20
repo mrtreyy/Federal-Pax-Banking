@@ -3,7 +3,7 @@ import { X, Download, Printer, MessageSquare, Copy, CheckCheck, ArrowUpRight, Ar
 import { formatCurrency, formatDateTime } from "@/lib/utils";
 import type { Transaction } from "@/lib/supabase";
 import { toast } from "sonner";
-import bankLogo from "@/assets/bankunited-logo.png";
+import bankLogo from "@/assets/bankunited-logo.jpg";
 
 interface Props {
   tx: Transaction & { account_name?: string; currency?: string };

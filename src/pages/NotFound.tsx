@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import bankLogo from "@/assets/bankunited-logo.png";
+import bankLogo from "@/assets/bankunited-logo.jpg";
 
 export default function NotFound() {
   const navigate = useNavigate();

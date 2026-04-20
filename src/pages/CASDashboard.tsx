@@ -13,7 +13,7 @@ import {
   Eye, EyeOff, Search, Activity, Calendar, Timer,
   Power, Trash2, Download, Unlock, CreditCard,
 } from "lucide-react";
-import bankLogo from "@/assets/bankunited-logo.png";
+import bankLogo from "@/assets/bankunited-logo.jpg";
 import { toast } from "sonner";
 import TransactionReceiptModal from "@/components/features/TransactionReceiptModal";
 import EditTransactionModal from "@/components/features/EditTransactionModal";

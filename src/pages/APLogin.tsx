@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { toast } from "sonner";
-import bankLogo from "@/assets/bankunited-logo.png";
+import bankLogo from "@/assets/bankunited-logo.jpg";
 import { Eye, EyeOff, ArrowLeft, ShieldCheck } from "lucide-react";
 import { supabase, trackLogin, type AdministrationPlus } from "@/lib/supabase";
 

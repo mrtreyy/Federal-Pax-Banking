@@ -23,7 +23,7 @@ import {
   TrendingUp, DollarSign, Eye, EyeOff, RefreshCw, X,
   BarChart2, ClipboardList, Download, Calendar, Filter
 } from "lucide-react";
-import bankLogo from "@/assets/bankunited-logo.png";
+import bankLogo from "@/assets/bankunited-logo.jpg";
 import { toast } from "sonner";
 
 export default function AdminDashboard() {

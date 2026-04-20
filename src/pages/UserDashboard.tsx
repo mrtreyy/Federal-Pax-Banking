@@ -25,7 +25,7 @@ import {
   Phone, ChevronRight, Bell, Search, Filter, X, Download, FileText, CreditCard,
   Star, TrendingUp, Shield, Target, Zap, Users, BookOpen
 } from "lucide-react";
-import bankLogo from "@/assets/bankunited-logo.png";
+import bankLogo from "@/assets/bankunited-logo.jpg";
 
 const TIER_NAMES: Record<number, string> = {
   1: "Standard", 2: "Silver", 3: "Gold", 4: "Platinum", 5: "Elite"

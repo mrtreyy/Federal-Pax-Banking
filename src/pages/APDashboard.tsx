@@ -4,7 +4,7 @@ import { supabase, type Account, type SubAdminPortal, type AdministrationPlus, t
 import { formatCurrency, getInitials, formatDateTime } from "@/lib/utils";
 import { usePolling } from "@/hooks/usePolling";
 import { Plus, LogOut, Users, Building2, ChevronRight, Eye, EyeOff, X, CheckCircle, Upload, RefreshCw, Bell, ArrowLeft, Reply, Send, Paperclip } from "lucide-react";
-import bankLogo from "@/assets/bankunited-logo.png";
+import bankLogo from "@/assets/bankunited-logo.jpg";
 import { toast } from "sonner";
 import { generateAccountNumber } from "@/lib/utils";
 
