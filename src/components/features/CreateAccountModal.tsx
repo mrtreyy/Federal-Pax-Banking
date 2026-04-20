@@ -11,7 +11,7 @@ interface Props {
   createdByAp?: string;
 }
 
-const ACCOUNT_TYPES = ["Savings Account", "Checking Account", "Current Account", "Fixed Deposit Account", "Business Account", "Joint Account"];
+const ACCOUNT_TYPES = ["Savings Account", "Checking Account", "Current Account", "Fixed Deposit Account", "Business Account", "Joint Account", "Trust Account"];
 const CURRENCIES = [
   "USD","EUR","GBP","CAD","AUD","JPY","NGN","GHS","ZAR","CHF","CNY","INR",
   "MXN","BRL","KES","EGP","AED","SAR","SGD","HKD","NOK","SEK","DKK","NZD","THB",

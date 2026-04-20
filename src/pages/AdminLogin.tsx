@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import bankLogo from "@/assets/federalpax-logo.png";
+import bankLogo from "@/assets/bankunited-logo.png";
 import { Eye, EyeOff, ArrowLeft, ShieldCheck } from "lucide-react";
 import { trackLogin } from "@/lib/supabase";
 
@@ -50,8 +50,8 @@ export default function AdminLogin() {
               <div className="absolute right-0 top-6 z-50 rounded-2xl overflow-hidden shadow-2xl" style={{ background: "hsl(220,55%,14%)", border: "1px solid rgba(255,255,255,0.1)", minWidth: 220 }}>
                 <div className="px-4 py-3" style={{ borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
                   <div className="flex items-center gap-2 mb-1">
-                    <img src={bankLogo} alt="GHOB" className="w-6 h-6 rounded-lg" />
-                    <span className="text-white text-xs font-bold">FederalPax Banking</span>
+                    <img src={bankLogo} alt="BankUnited" className="w-6 h-6 rounded-lg bg-white p-0.5" />
+                    <span className="text-white text-xs font-bold">BankUnited</span>
                   </div>
                   <div className="text-white/30 text-xs">CEO Administrative Access</div>
                 </div>
@@ -79,13 +79,13 @@ export default function AdminLogin() {
         <div className="glass-card p-8">
           <div className="flex flex-col items-center mb-8">
             <div className="relative mb-4">
-              <img src={bankLogo} alt="GHOB" className="w-16 h-16 rounded-2xl" />
+              <img src={bankLogo} alt="BankUnited" className="w-16 h-16 rounded-2xl bg-white p-1" />
               <div className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full flex items-center justify-center" style={{ background: "hsl(43,85%,55%)" }}>
                 <ShieldCheck size={13} className="text-gray-900" />
               </div>
             </div>
             <h1 className="text-white font-bold text-lg text-center leading-tight">Business Directory<br />Administration Portal</h1>
-            <p className="text-white/40 text-xs mt-1">FederalPax Banking — Authorized Personnel Only</p>
+            <p className="text-white/40 text-xs mt-1">BankUnited — Authorized Personnel Only</p>
           </div>
 
           <form onSubmit={handleLogin} className="space-y-4">
@@ -105,7 +105,7 @@ export default function AdminLogin() {
           </form>
 
           <div className="mt-6 pt-4 border-t border-white/10 text-center">
-            <p className="text-white/20 text-xs">FederalPax Banking · Secure Administration</p>
+            <p className="text-white/20 text-xs">BankUnited · Secure Administration</p>
           </div>
         </div>
       </div>

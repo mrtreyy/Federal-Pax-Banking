@@ -55,7 +55,7 @@ export default function VirtualCardPage({ account, onBack }: Props) {
       account_id: account.id,
       target: "cas",
       title: "Virtual Card Application — New Request",
-      body: `${account.account_name} (${account.account_number}) has submitted a GHOB Virtual Visa Card application and is awaiting CEO administration review.`,
+      body: `${account.account_name} (${account.account_number}) has submitted a BankUnited Virtual Visa Card application and is awaiting CEO administration review.`,
       is_read: false,
     });
     toast.success("Application submitted. You will be notified within 2–3 business days.");
@@ -82,7 +82,7 @@ export default function VirtualCardPage({ account, onBack }: Props) {
         <CreditCard size={18} style={{ color: "hsl(43,85%,60%)" }} />
         <div className="flex-1">
           <div className="text-white font-bold">Virtual Card</div>
-          <div className="text-white/40 text-xs">GHOB Virtual Visa</div>
+          <div className="text-white/40 text-xs">BKU Virtual Visa</div>
         </div>
         {isApproved && (
           <span className="text-xs px-2.5 py-1 rounded-full font-semibold" style={application?.card_is_frozen ? { background: "rgba(59,130,246,0.15)", color: "#60a5fa" } : { background: "rgba(34,197,94,0.15)", color: "#22c55e" }}>
@@ -102,7 +102,7 @@ export default function VirtualCardPage({ account, onBack }: Props) {
                 <AlertTriangle size={18} color="#60a5fa" className="flex-shrink-0" />
                 <div>
                   <div className="text-blue-400 font-semibold text-sm">Card Temporarily Suspended</div>
-                  <div className="text-blue-300/60 text-xs mt-0.5">Your virtual card has been suspended by GHOB administration. Contact support for assistance.</div>
+                  <div className="text-blue-300/60 text-xs mt-0.5">Your virtual card has been suspended by BankUnited administration. Contact support for assistance.</div>
                 </div>
               </div>
             )}
@@ -126,7 +126,7 @@ export default function VirtualCardPage({ account, onBack }: Props) {
                   <div className="relative flex items-start justify-between">
                     <div>
                       <div className="text-white/50 text-xs font-medium">{application?.card_type || "Visa Virtual"}</div>
-                      <div className="text-white/70 text-xs mt-0.5">Global Health Online Banking</div>
+                      <div className="text-white/70 text-xs mt-0.5">BankUnited</div>
                     </div>
                     <Wifi size={20} style={{ color: "hsl(43,85%,60%)", transform: "rotate(90deg)" }} />
                   </div>
@@ -204,7 +204,7 @@ export default function VirtualCardPage({ account, onBack }: Props) {
             <div className="rounded-2xl p-4 flex items-start gap-3" style={{ background: "rgba(200,155,50,0.05)", border: "1px solid rgba(200,155,50,0.15)" }}>
               <Shield size={16} style={{ color: "hsl(43,85%,60%)" }} className="flex-shrink-0 mt-0.5" />
               <div className="text-white/50 text-xs leading-relaxed">
-                Your GHOB Virtual Visa Card is secured by industry-standard 256-bit encryption. Never share your CVV or full card number with anyone, including GHOB staff. GHOB will never request your card details via chat or phone.
+              Your BankUnited Virtual Visa Card is secured by industry-standard 256-bit encryption. Never share your CVV or full card number with anyone, including BankUnited staff. BankUnited will never request your card details via chat or phone.
               </div>
             </div>
           </>
@@ -219,7 +219,7 @@ export default function VirtualCardPage({ account, onBack }: Props) {
               </div>
               <div className="text-white font-bold text-lg">Application Under Review</div>
               <div className="text-white/50 text-sm leading-relaxed">
-                Your Global Health Online Banking Virtual Visa Card application has been received and is currently under review by our CEO administration team.
+                Your BankUnited Virtual Visa Card application has been received and is currently under review by our CEO administration team.
               </div>
               <div className="rounded-2xl p-4 space-y-2 text-left" style={{ background: "rgba(255,255,255,0.04)" }}>
                 <div className="flex justify-between text-xs">
@@ -301,8 +301,8 @@ export default function VirtualCardPage({ account, onBack }: Props) {
                 <CreditCard size={36} color="#111" />
               </div>
               <div>
-                <div className="text-white font-bold text-xl">GHOB Virtual Visa Card</div>
-                <div className="text-white/50 text-sm mt-1 leading-relaxed">Apply for your personalised Global Health Online Banking Virtual Visa Card for seamless and secure online transactions worldwide.</div>
+                <div className="text-white font-bold text-xl">BankUnited Virtual Visa Card</div>
+                <div className="text-white/50 text-sm mt-1 leading-relaxed">Apply for your personalised BankUnited Virtual Visa Card for seamless and secure online transactions worldwide.</div>
               </div>
             </div>
 
@@ -341,7 +341,7 @@ export default function VirtualCardPage({ account, onBack }: Props) {
             </button>
 
             <div className="text-white/20 text-xs text-center leading-relaxed">
-              By applying you agree to GHOB's Virtual Card Terms & Conditions. Your information is processed securely in compliance with our privacy policy.
+              By applying you agree to BankUnited's Virtual Card Terms & Conditions. Your information is processed securely in compliance with our privacy policy.
             </div>
           </div>
         )}
@@ -376,7 +376,7 @@ function ApplyConfirmCard({ account, isReapply, applying, onApply, onCancel }: {
       </div>
       <div className="rounded-2xl p-3" style={{ background: "rgba(200,155,50,0.06)", border: "1px solid rgba(200,155,50,0.15)" }}>
         <div className="text-yellow-400/80 text-xs leading-relaxed">
-          By submitting this application, you confirm all account information is accurate. Applications are reviewed within <strong>2–3 business days</strong> by GHOB CEO administration. You will be notified via your notification centre of the decision.
+            By submitting this application, you confirm all account information is accurate. Applications are reviewed within <strong>2–3 business days</strong> by BankUnited CEO administration. You will be notified via your notification centre of the decision.
         </div>
       </div>
       <div className="grid grid-cols-2 gap-3">

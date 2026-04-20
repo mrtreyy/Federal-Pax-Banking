@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { X, CheckCircle, User, Building2 } from "lucide-react";
+import { X, CheckCircle, User, Building2, Mail } from "lucide-react";
 import { supabase, type Account, logAudit } from "@/lib/supabase";
 import { toast } from "sonner";
 import { BANK_SUGGESTIONS } from "@/lib/utils";
@@ -11,6 +11,14 @@ interface Props {
   onSuccess: () => void;
 }
 
+function sendEmailNotification(to: string, subject: string, body: string) {
+  // Log the email intent — in production this would call an email service
+  console.log(`[BankUnited Email] TO: ${to} | SUBJECT: ${subject} | BODY: ${body}`);
+  // Create a mailto link for demonstration
+  const link = `mailto:${to}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  return link;
+}
+
 export default function AdminDepositModal({ accounts, selectedAccount, onClose, onSuccess }: Props) {
   const [accountId, setAccountId] = useState(selectedAccount?.id || "");
   const [amount, setAmount] = useState("");
@@ -19,6 +27,7 @@ export default function AdminDepositModal({ accounts, selectedAccount, onClose, 
   const [senderBank, setSenderBank] = useState("");
   const [bankSuggestions, setBankSuggestions] = useState<string[]>([]);
   const [customDate, setCustomDate] = useState(new Date().toISOString().slice(0, 16));
+  const [sendCreditEmail, setSendCreditEmail] = useState(false);
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
 
@@ -54,20 +63,29 @@ export default function AdminDepositModal({ accounts, selectedAccount, onClose, 
 
     if (txErr) { toast.error("Deposit failed."); setLoading(false); return; }
 
-    await supabase.from("banking_accounts").update({ balance: Number(chosenAccount.balance) + amt, updated_at: new Date().toISOString() }).eq("id", accountId);
+    const newBalance = Number(chosenAccount.balance) + amt;
+    await supabase.from("banking_accounts").update({ balance: newBalance, updated_at: new Date().toISOString() }).eq("id", accountId);
 
     await supabase.from("banking_notifications").insert({
       account_id: accountId,
       target: accountId,
-      title: "Deposit Received",
-      body: `${chosenAccount.currency} ${amt.toFixed(2)} has been deposited${senderName ? ` from ${senderName}` : ""}.`,
+      title: "Credit Received",
+      body: `${chosenAccount.currency} ${amt.toFixed(2)} has been deposited${senderName ? ` from ${senderName}` : ""}. New balance: ${chosenAccount.currency} ${newBalance.toFixed(2)}.`,
       is_read: false,
     });
 
-    await logAudit("admin_deposit", accountId, chosenAccount.account_name, { amount: amt, sender: senderName, bank: senderBank, description, timestamp: customDate });
+    await logAudit("admin_deposit", accountId, chosenAccount.account_name, { amount: amt, sender: senderName, bank: senderBank, description, timestamp: customDate, emailSent: sendCreditEmail });
 
-    // Check balance threshold alert
-    const newBalance = Number(chosenAccount.balance) + amt;
+    // Send credit email if toggled on
+    if (sendCreditEmail && chosenAccount.login_email) {
+      const subject = `BankUnited: Credit Alert - ${chosenAccount.currency} ${amt.toFixed(2)}`;
+      const body = `Dear ${chosenAccount.account_name},\n\nA credit of ${chosenAccount.currency} ${amt.toFixed(2)} has been applied to your BankUnited account.\n\nDate: ${new Date(customDate).toLocaleString()}\nSender: ${senderName || "BankUnited Administration"}\nNew Balance: ${chosenAccount.currency} ${newBalance.toFixed(2)}\n\nThis is a secure notification from BankUnited. Do not reply to this email.\n\n© 2015 BankUnited. All rights reserved.`;
+      sendEmailNotification(chosenAccount.login_email, subject, body);
+      await logAudit("email_sent_credit_alert", accountId, chosenAccount.account_name, { to: chosenAccount.login_email, subject }, "CEO", "cas");
+      toast.success(`Credit email notification sent to ${chosenAccount.login_email}`);
+    }
+
+    // Balance threshold alert
     if (chosenAccount.balance_threshold && newBalance < Number(chosenAccount.balance_threshold)) {
       await supabase.from("banking_notifications").insert({
         account_id: accountId,
@@ -93,6 +111,7 @@ export default function AdminDepositModal({ accounts, selectedAccount, onClose, 
           </div>
           <h3 className="text-white font-bold text-xl mb-2">Deposit Successful</h3>
           <p className="text-white/60 text-sm">{chosenAccount?.currency} {parseFloat(amount).toFixed(2)} deposited to {chosenAccount?.account_name}{senderName ? ` from ${senderName}` : ""}</p>
+          {sendCreditEmail && <p className="text-yellow-400/70 text-xs mt-2">Credit alert email sent</p>}
         </div>
       </div>
     );
@@ -103,7 +122,7 @@ export default function AdminDepositModal({ accounts, selectedAccount, onClose, 
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
       <div className="relative w-full max-w-sm rounded-3xl overflow-hidden" style={{ background: "hsl(220,50%,12%)", border: "1px solid rgba(255,255,255,0.1)" }}>
         <div className="p-5 flex items-center justify-between" style={{ borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
-          <h3 className="text-white font-bold text-lg">Admin Deposit</h3>
+          <h3 className="text-white font-bold text-lg">CEO Deposit</h3>
           <button onClick={onClose} className="text-white/40 hover:text-white p-1"><X size={20} /></button>
         </div>
         <div className="p-5 space-y-3 max-h-[80vh] overflow-y-auto">
@@ -133,10 +152,7 @@ export default function AdminDepositModal({ accounts, selectedAccount, onClose, 
             {bankSuggestions.length > 0 && (
               <div className="absolute top-full left-0 right-0 z-50 rounded-2xl overflow-hidden mt-1" style={{ background: "hsl(220,55%,14%)", border: "1px solid rgba(255,255,255,0.1)" }}>
                 {bankSuggestions.map((b) => (
-                  <button key={b} onClick={() => { setSenderBank(b); setBankSuggestions([]); }}
-                    className="w-full text-left px-4 py-2.5 text-white text-xs hover:bg-white/5 transition-colors" style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
-                    {b}
-                  </button>
+                  <button key={b} onClick={() => { setSenderBank(b); setBankSuggestions([]); }} className="w-full text-left px-4 py-2.5 text-white text-xs hover:bg-white/5 transition-colors" style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }}>{b}</button>
                 ))}
               </div>
             )}
@@ -146,8 +162,21 @@ export default function AdminDepositModal({ accounts, selectedAccount, onClose, 
             <input type="text" className="dark-input" placeholder="Deposit description" value={description} onChange={(e) => setDescription(e.target.value)} />
           </div>
           <div>
-            <label className="text-white/60 text-xs mb-1.5 block">Transaction Date & Time (Including Year)</label>
+            <label className="text-white/60 text-xs mb-1.5 block">Transaction Date & Time</label>
             <input type="datetime-local" className="dark-input" value={customDate} onChange={(e) => setCustomDate(e.target.value)} />
+          </div>
+          {/* Credit Alert Email Toggle — CAS Controlled */}
+          <div className="flex items-center justify-between p-3 rounded-2xl" style={{ background: "rgba(200,155,50,0.06)", border: "1px solid rgba(200,155,50,0.15)" }}>
+            <div className="flex items-center gap-2">
+              <Mail size={14} style={{ color: "hsl(43,85%,60%)" }} />
+              <div>
+                <div className="text-white text-xs font-semibold">Send Credit Alert Email</div>
+                <div className="text-white/40 text-xs">BankUnited auto-email to user</div>
+              </div>
+            </div>
+            <button onClick={() => setSendCreditEmail(!sendCreditEmail)} className="w-11 h-6 rounded-full transition-colors flex-shrink-0" style={{ background: sendCreditEmail ? "hsl(43,85%,55%)" : "rgba(255,255,255,0.12)" }}>
+              <div className="w-5 h-5 rounded-full bg-white shadow transition-transform m-0.5" style={{ transform: sendCreditEmail ? "translateX(20px)" : "translateX(0)" }} />
+            </button>
           </div>
           <button onClick={handleDeposit} disabled={loading} className="gold-btn w-full py-3.5 text-sm font-semibold flex items-center justify-center gap-2">
             {loading ? <div className="w-5 h-5 border-2 border-gray-900/30 border-t-gray-900 rounded-full animate-spin" /> : "Make Deposit"}

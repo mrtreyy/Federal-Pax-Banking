@@ -122,7 +122,7 @@ export default function TierUpgradeSection({ account, onBack }: Props) {
         <ChevronUp size={18} style={{ color: "hsl(43,85%,60%)" }} />
         <div className="flex-1">
           <div className="text-white font-bold">Account Tier</div>
-          <div className="text-white/40 text-xs">GHOB Tiered Banking</div>
+          <div className="text-white/40 text-xs">BKU Tiered Banking</div>
         </div>
       </div>
 
@@ -159,7 +159,7 @@ export default function TierUpgradeSection({ account, onBack }: Props) {
           <div className="rounded-3xl p-6 text-center space-y-2" style={{ background: "rgba(168,85,247,0.08)", border: "1px solid rgba(168,85,247,0.2)" }}>
             <div className="text-4xl">⭐</div>
             <div className="text-white font-bold">You're at the Top!</div>
-            <div className="text-white/50 text-sm">Your Elite account has the highest tier and all premium features unlocked. Thank you for your loyalty to GHOB.</div>
+            <div className="text-white/50 text-sm">Your Elite account has the highest tier and all premium features unlocked. Thank you for your loyalty to BankUnited.</div>
           </div>
         ) : (
           <>
@@ -185,7 +185,7 @@ export default function TierUpgradeSection({ account, onBack }: Props) {
                   </div>
                 </div>
                 <div className="text-white/40 text-xs leading-relaxed">
-                  Your tier upgrade request is being reviewed by GHOB CEO Administration. Processing typically takes 3–5 business days. You will be notified of the outcome in your notification centre.
+                  Your tier upgrade request is being reviewed by BankUnited CEO Administration. Processing typically takes 3–5 business days. You will be notified of the outcome in your notification centre.
                 </div>
                 <div className="flex justify-between text-xs">
                   <span className="text-white/30">Submitted</span>
@@ -221,7 +221,7 @@ export default function TierUpgradeSection({ account, onBack }: Props) {
                 <div className="rounded-3xl p-5 space-y-4" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(200,155,50,0.2)" }}>
                   <div className="text-white font-bold">Tier Upgrade Application</div>
                   <div className="text-white/50 text-xs leading-relaxed">
-                    To upgrade to Tier {nextTier} ({nextTierInfo.name}), please provide a valid government-issued identity document. Your request will be reviewed by GHOB CEO Administration within 3–5 business days.
+                    To upgrade to Tier {nextTier} ({nextTierInfo.name}), please provide a valid government-issued identity document. Your request will be reviewed by BankUnited CEO Administration within 3–5 business days.
                   </div>
                   <div>
                     <label className="text-white/60 text-xs mb-1.5 block">ID Document Type</label>

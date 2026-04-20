@@ -3,7 +3,7 @@ import { X, Download, Printer, MessageSquare, Copy, CheckCheck, ArrowUpRight, Ar
 import { formatCurrency, formatDateTime } from "@/lib/utils";
 import type { Transaction } from "@/lib/supabase";
 import { toast } from "sonner";
-import bankLogo from "@/assets/bank-logo.png";
+import bankLogo from "@/assets/bankunited-logo.png";
 
 interface Props {
   tx: Transaction & { account_name?: string; currency?: string };
@@ -27,14 +27,14 @@ function generateReceiptHTML(tx: Props["tx"]): string {
     tx.description ? ["Narration", tx.description] : null,
     ["Value Date", formatDateTime(tx.custom_timestamp)],
     ["Status", "SUCCESSFUL"],
-    ["Verified By", "Global Health Online Banking"],
+    ["Verified By", "BankUnited"],
   ].filter(Boolean) as string[][];
 
   return `<!DOCTYPE html>
 <html>
 <head>
 <meta charset="UTF-8" name="viewport" content="width=device-width,initial-scale=1"/>
-<title>GHOB Transaction Receipt — ${tx.transaction_id}</title>
+<title>BankUnited Receipt — ${tx.transaction_id}</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
   *{margin:0;padding:0;box-sizing:border-box;}
@@ -77,7 +77,7 @@ function generateReceiptHTML(tx: Props["tx"]): string {
   <div class="card">
     <div class="header-band">
       <div class="logo-ring"><div class="logo-text">G</div></div>
-      <div class="bank-name">Global Health Online Banking</div>
+      <div class="bank-name">BankUnited</div>
       <div class="bank-sub">Official Transaction Receipt</div>
       <div class="status-badge"><div class="status-dot"></div><div class="status-text">Transaction Successful</div></div>
     </div>
@@ -90,9 +90,9 @@ function generateReceiptHTML(tx: Props["tx"]): string {
       ${rows.map(([l, v]) => `<div class="row"><span class="label">${l}</span><span class="value${l === "Transaction ID" || l === "Beneficiary Account" ? " mono" : ""}">${v}</span></div>`).join("")}
     </div>
     <div class="footer">
-      <div class="footer-brand">© ${new Date().getFullYear()} Global Health Online Banking · All Rights Reserved</div>
+      <div class="footer-brand">© 2015 BankUnited · All Rights Reserved</div>
       <div class="footer-legal">This is an electronically generated receipt. No signature is required. This document is valid as proof of transaction. Please retain for your records.</div>
-      <div class="watermark">🔒 GHOB · SECURED & VERIFIED</div>
+      <div class="watermark">🔒 BKU · SECURED & VERIFIED</div>
     </div>
   </div>
 </div>
@@ -175,9 +175,9 @@ export default function TransactionReceiptModal({ tx, onClose, onReport, showRep
           ))}
         </div>
 
-        {/* GHOB Footer */}
+        {/* BankUnited Footer */}
         <div className="px-5 pb-4 pt-1 text-center">
-          <div className="text-white/15 text-xs">🔒 Secured & Verified by Global Health Online Banking</div>
+          <div className="text-white/15 text-xs">🔒 Secured & Verified by BankUnited</div>
         </div>
 
         {/* Actions */}

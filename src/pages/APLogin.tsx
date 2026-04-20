@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { toast } from "sonner";
-import bankLogo from "@/assets/federalpax-logo.png";
+import bankLogo from "@/assets/bankunited-logo.png";
 import { Eye, EyeOff, ArrowLeft, ShieldCheck } from "lucide-react";
 import { supabase, trackLogin, type AdministrationPlus } from "@/lib/supabase";
 
@@ -54,9 +54,9 @@ export default function APLogin() {
 
         <div className="glass-card p-8">
           <div className="flex flex-col items-center mb-6">
-            <img src={bankLogo} alt="GHOB" className="w-14 h-14 rounded-2xl mb-3" />
+            <img src={bankLogo} alt="BankUnited" className="w-14 h-14 rounded-2xl mb-3 bg-white p-1" />
             <h1 className="text-white font-bold text-lg text-center leading-tight">Administration Plus</h1>
-            <p className="text-white/40 text-xs mt-1">FederalPax Banking</p>
+            <p className="text-white/40 text-xs mt-1">BankUnited</p>
           </div>
 
           {/* Tier selector */}
@@ -94,7 +94,7 @@ export default function APLogin() {
             </button>
           </form>
           <div className="mt-4 pt-4 border-t border-white/10 text-center">
-            <p className="text-white/20 text-xs">FederalPax Banking · Administration Plus</p>
+            <p className="text-white/20 text-xs">BankUnited · Administration Plus</p>
           </div>
         </div>
       </div>

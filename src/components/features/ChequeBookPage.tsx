@@ -123,7 +123,7 @@ export default function ChequeBookPage({ account, onBack }: Props) {
         <BookOpen size={18} style={{ color: "hsl(43,85%,60%)" }} />
         <div className="flex-1">
           <div className="text-white font-bold">Cheque Book</div>
-          <div className="text-white/40 text-xs">FederalPax Banking Cheque Service</div>
+          <div className="text-white/40 text-xs">BankUnited Cheque Service</div>
         </div>
       </div>
 
@@ -198,8 +198,8 @@ export default function ChequeBookPage({ account, onBack }: Props) {
               <div className="w-16 h-16 rounded-3xl flex items-center justify-center mx-auto" style={{ background: "linear-gradient(135deg,hsl(43,85%,55%),hsl(38,70%,38%))" }}>
                 <BookOpen size={28} color="#111" />
               </div>
-              <div className="text-white font-bold text-xl">FederalPax Cheque Book</div>
-              <div className="text-white/50 text-sm">Request your official FederalPax Banking cheque book for secure and professional payments.</div>
+              <div className="text-white font-bold text-xl">BankUnited Cheque Book</div>
+              <div className="text-white/50 text-sm">Request your official BankUnited cheque book for secure and professional payments.</div>
             </div>
             <button onClick={() => setShowForm(true)} className="gold-btn w-full py-4 text-base font-bold">Request Cheque Book</button>
           </div>

@@ -104,7 +104,7 @@ export default function VirtualCardSection({ account }: Props) {
               <div className="relative flex items-start justify-between">
                 <div>
                   <div className="text-white/50 text-xs font-medium">{application.card_type || "Visa Virtual"}</div>
-                  <div className="text-white/80 text-xs mt-0.5">Global Health Online Banking</div>
+                  <div className="text-white/80 text-xs mt-0.5">BankUnited</div>
                 </div>
                 <Wifi size={20} style={{ color: "hsl(43,85%,60%)", transform: "rotate(90deg)" }} />
               </div>
@@ -149,7 +149,7 @@ export default function VirtualCardSection({ account }: Props) {
               </div>
               <div className="px-6 mt-4 text-center">
                 <div className="text-white/20 text-xs">Tap card to flip · Virtual card for online use only</div>
-                <div className="text-white/15 text-xs mt-1">© {new Date().getFullYear()} Global Health Online Banking</div>
+                <div className="text-white/15 text-xs mt-1">© {new Date().getFullYear()} BankUnited</div>
               </div>
             </div>
           </div>
@@ -199,7 +199,7 @@ export default function VirtualCardSection({ account }: Props) {
           </div>
         </div>
         <div className="text-white/30 text-xs leading-relaxed">
-          Your virtual card application is currently under review by the Global Health Online Banking administration. You will receive a notification once a decision has been made.
+          Your virtual card application is currently under review by BankUnited administration. You will receive a notification once a decision has been made.
         </div>
       </div>
     );
@@ -265,7 +265,7 @@ export default function VirtualCardSection({ account }: Props) {
         </div>
         <div>
           <div className="text-white font-bold">Virtual Card</div>
-          <div className="text-white/40 text-xs mt-0.5">Apply for a GHOB Virtual Visa Card</div>
+          <div className="text-white/40 text-xs mt-0.5">Apply for a BankUnited Virtual Visa Card</div>
         </div>
       </div>
 
@@ -283,7 +283,7 @@ export default function VirtualCardSection({ account }: Props) {
       </div>
 
       <div className="text-white/40 text-xs leading-relaxed">
-        Apply for a Global Health Online Banking Virtual Visa Card for seamless online payments. Applications are reviewed by our CEO administration and typically processed within <span className="text-yellow-400/80 font-medium">2–3 business days</span>.
+        Apply for a BankUnited Virtual Visa Card for seamless online payments. Applications are reviewed by our CEO administration and typically processed within <span className="text-yellow-400/80 font-medium">2–3 business days</span>.
       </div>
 
       <button onClick={() => setShowApplyForm(true)} className="gold-btn w-full py-3.5 text-sm font-semibold flex items-center justify-center gap-2">
@@ -322,7 +322,7 @@ function ApplyConfirmForm({ account, isReapply, applying, onApply, onCancel }: {
 
       <div className="rounded-2xl p-3" style={{ background: "rgba(200,155,50,0.07)", border: "1px solid rgba(200,155,50,0.15)" }}>
         <div className="text-yellow-400/80 text-xs leading-relaxed">
-          By submitting this application, you confirm that all account information is accurate and complete. The Global Health Online Banking administration will review your application within <strong>2–3 business days</strong>. You will be notified of the decision via your notification centre.
+          By submitting this application, you confirm that all account information is accurate and complete. BankUnited administration will review your application within <strong>2–3 business days</strong>. You will be notified of the decision via your notification centre.
         </div>
       </div>
 

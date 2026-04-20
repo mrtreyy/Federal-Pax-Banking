@@ -23,7 +23,7 @@ import {
   TrendingUp, DollarSign, Eye, EyeOff, RefreshCw, X,
   BarChart2, ClipboardList, Download, Calendar, Filter
 } from "lucide-react";
-import bankLogo from "@/assets/federalpax-logo.png";
+import bankLogo from "@/assets/bankunited-logo.png";
 import { toast } from "sonner";
 
 export default function AdminDashboard() {
@@ -289,7 +289,7 @@ export default function AdminDashboard() {
       {/* Header */}
       <div className="sticky top-0 z-30 flex items-center justify-between px-5 pt-12 pb-4" style={{ background: "hsl(220,55%,12%)", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
         <div className="flex items-center gap-3">
-          <img src={bankLogo} alt="GHOB" className="w-9 h-9 rounded-xl" />
+          <img src={bankLogo} alt="BankUnited" className="w-9 h-9 rounded-xl bg-white p-0.5" />
           <div>
             <div className="text-white/50 text-xs">Business Directory</div>
             <div className="text-white font-bold text-sm leading-tight">Administration Portal</div>

@@ -110,7 +110,7 @@ export default function UserNotifications({ notifications, accountId, onClose, o
               <div className="text-white font-bold text-base leading-tight flex-1">{selected.title}</div>
               {!selected.is_read && <div className="w-2.5 h-2.5 rounded-full flex-shrink-0 mt-1" style={{ background: "hsl(43,85%,60%)" }} />}
             </div>
-            <div className="text-white/30 text-xs">{formatDateTime(selected.created_at)} · Global Health Online Banking</div>
+            <div className="text-white/30 text-xs">{formatDateTime(selected.created_at)} · BankUnited</div>
             <div className="h-px" style={{ background: "rgba(255,255,255,0.07)" }} />
             <div className="text-white/75 text-sm leading-relaxed">{selected.body}</div>
           </div>
@@ -123,7 +123,7 @@ export default function UserNotifications({ notifications, accountId, onClose, o
             <textarea
               className="dark-input resize-none w-full text-sm leading-relaxed"
               rows={4}
-              placeholder="Type your response to GHOB Administration..."
+              placeholder="Type your response to BankUnited Administration..."
               value={replyText}
               onChange={e => setReplyText(e.target.value)}
             />
@@ -169,7 +169,7 @@ export default function UserNotifications({ notifications, accountId, onClose, o
           <div className="text-center py-16">
             <Bell size={40} className="mx-auto mb-3 text-white/15" />
             <div className="text-white/30 text-sm">No notifications yet</div>
-            <div className="text-white/15 text-xs mt-1">Notifications from GHOB administration will appear here</div>
+            <div className="text-white/15 text-xs mt-1">Notifications from BankUnited administration will appear here</div>
           </div>
         ) : (
           myNotifs.map(n => (

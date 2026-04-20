@@ -4,7 +4,7 @@ import { supabase, type Account, type SubAdminPortal, type AdministrationPlus, t
 import { formatCurrency, getInitials, formatDateTime } from "@/lib/utils";
 import { usePolling } from "@/hooks/usePolling";
 import { Plus, LogOut, Users, Building2, ChevronRight, Eye, EyeOff, X, CheckCircle, Upload, RefreshCw, Bell, ArrowLeft, Reply, Send, Paperclip } from "lucide-react";
-import bankLogo from "@/assets/federalpax-logo.png";
+import bankLogo from "@/assets/bankunited-logo.png";
 import { toast } from "sonner";
 import { generateAccountNumber } from "@/lib/utils";
 
@@ -200,7 +200,7 @@ export default function APDashboard() {
     <div className="min-h-screen pb-20" style={{ background: "hsl(220,45%,8%)" }}>
       <div className="sticky top-0 z-30 flex items-center justify-between px-5 pt-12 pb-4" style={{ background: "hsl(220,55%,12%)", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
         <div className="flex items-center gap-3">
-          <img src={bankLogo} alt="GHOB" className="w-9 h-9 rounded-xl" />
+          <img src={bankLogo} alt="BankUnited" className="w-9 h-9 rounded-xl bg-white p-0.5" />
           <div>
             <div className="text-white/50 text-xs">Administration Plus · {cfg.label}</div>
             <div className="text-white font-bold text-sm">{apSession.name}</div>

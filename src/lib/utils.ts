@@ -45,7 +45,7 @@ export function formatTime(dateStr: string): string {
 }
 
 export function generateAccountNumber(): string {
-  const prefix = 'GHOB';
+  const prefix = 'BKU';
   const rand = Math.floor(Math.random() * 9000000000) + 1000000000;
   return `${prefix}${rand}`;
 }
@@ -114,7 +114,7 @@ export function generateReceiptHTML(tx: {
 <html>
 <head>
 <meta charset="UTF-8"/>
-<title>FederalPax Receipt — ${tx.transaction_id}</title>
+<title>BankUnited Receipt — ${tx.transaction_id}</title>
 <style>
   *{margin:0;padding:0;box-sizing:border-box;}
   body{font-family:Inter,Arial,sans-serif;background:hsl(220,45%,8%);color:white;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;}
@@ -141,7 +141,7 @@ export function generateReceiptHTML(tx: {
 <div class="card">
   <div class="header">
     <div class="logo"><div class="logo-text">F</div></div>
-    <div class="bank-name">FederalPax Banking</div>
+    <div class="bank-name">BankUnited</div>
     <div class="bank-sub">Official Transaction Receipt</div>
   </div>
   <div class="amount">
@@ -154,8 +154,8 @@ export function generateReceiptHTML(tx: {
   </div>
   <div class="footer">
     <div class="status">✓ COMPLETED</div>
-    <div style="margin-top:12px;">Thank you for banking with FederalPax Banking</div>
-    <div style="margin-top:4px;">© ${new Date().getFullYear()} FederalPax Banking · All rights reserved</div>
+    <div style="margin-top:12px;">Thank you for banking with BankUnited</div>
+    <div style="margin-top:4px;">© 2015 BankUnited · All rights reserved</div>
   </div>
 </div>
 </body>
@@ -182,7 +182,7 @@ export function downloadReceiptAsHTML(tx: Parameters<typeof generateReceiptHTML>
 export function generateReceiptText(tx: Parameters<typeof generateReceiptHTML>[0]): string {
   return `
 ========================================
-      FEDERALPAX BANKING
+      BANKUNITED
       TRANSACTION RECEIPT
 ========================================
 Transaction ID : ${tx.transaction_id}
@@ -198,7 +198,7 @@ ${tx.description ? `Description    : ${tx.description}` : ''}
 Status         : COMPLETED
 ========================================
      Thank you for banking with us
-         FederalPax Banking
+         BankUnited
 ========================================
 `.trim();
 }

@@ -25,7 +25,7 @@ import {
   Phone, ChevronRight, Bell, Search, Filter, X, Download, FileText, CreditCard,
   Star, TrendingUp, Shield, Target, Zap, Users, BookOpen
 } from "lucide-react";
-import bankLogo from "@/assets/federalpax-logo.png";
+import bankLogo from "@/assets/bankunited-logo.png";
 
 const TIER_NAMES: Record<number, string> = {
   1: "Standard", 2: "Silver", 3: "Gold", 4: "Platinum", 5: "Elite"
@@ -186,10 +186,10 @@ export default function UserDashboard() {
       {/* Header */}
       <div className="sticky top-0 z-30 flex items-center justify-between px-5 pt-12 pb-4" style={{ background: "hsl(220,55%,12%)", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
         <div className="flex items-center gap-3">
-          <img src={bankLogo} alt="FederalPax" className="w-9 h-9 rounded-xl" />
+          <img src={bankLogo} alt="BankUnited" className="w-9 h-9 rounded-xl bg-white p-0.5" />
           <div>
-            <div className="text-white/50 text-xs">FederalPax</div>
-            <div className="text-white font-bold text-sm leading-tight">Banking</div>
+            <div className="text-white/50 text-xs">BankUnited</div>
+            <div className="text-white font-bold text-sm leading-tight">Secure Banking</div>
           </div>
         </div>
         <div className="flex items-center gap-3">
@@ -268,7 +268,7 @@ export default function UserDashboard() {
             <div className="text-white font-bold" style={{ fontSize: "clamp(1.6rem, 6vw, 2.5rem)" }}>
               {showBalance ? formatCurrency(account.balance, account.currency) : "•••••••"}
             </div>
-            <div className="text-white/30 text-xs mt-0.5">{account.currency} · Tier {tier} Account · FederalPax Banking</div>
+            <div className="text-white/30 text-xs mt-0.5">{account.currency} · Tier {tier} Account · BankUnited</div>
           </div>
         </div>
 

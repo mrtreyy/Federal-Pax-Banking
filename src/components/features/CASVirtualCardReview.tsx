@@ -85,7 +85,7 @@ export default function CASVirtualCardReview({ onClose, accounts = [] }: Props) 
       account_id: selected.account_id,
       target: selected.account_id,
       title: "🎉 Virtual Card Approved",
-      body: `Congratulations, ${selected.account_name}! Your Global Health Online Banking Virtual Visa Card application has been approved by our CEO administration. Your card is now active and available in your account dashboard. Card limits ${editDailyLimit ? `(Daily: ${formatCurrency(parseFloat(editDailyLimit), "USD")})` : ""} have been configured. Please keep your card details strictly confidential.`,
+      body: `Congratulations, ${selected.account_name}! Your BankUnited Virtual Visa Card application has been approved by our CEO administration. Your card is now active and available in your account dashboard. Card limits ${editDailyLimit ? `(Daily: ${formatCurrency(parseFloat(editDailyLimit), "USD")})` : ""} have been configured. Please keep your card details strictly confidential.`,
       is_read: false,
     });
 
@@ -111,7 +111,7 @@ export default function CASVirtualCardReview({ onClose, accounts = [] }: Props) 
       account_id: selected.account_id,
       target: selected.account_id,
       title: "Virtual Card Application — Decision",
-      body: `Dear ${selected.account_name}, following a thorough review of your Global Health Online Banking Virtual Visa Card application, we regret to inform you that your request has not been approved at this time. Reason: ${declineReason.trim()}. You may reapply through your dashboard. We sincerely apologise for any inconvenience this may cause.`,
+      body: `Dear ${selected.account_name}, following a thorough review of your BankUnited Virtual Visa Card application, we regret to inform you that your request has not been approved at this time. Reason: ${declineReason.trim()}. You may reapply through your dashboard. We sincerely apologise for any inconvenience this may cause.`,
       is_read: false,
     });
 
@@ -131,8 +131,8 @@ export default function CASVirtualCardReview({ onClose, accounts = [] }: Props) 
       target: app.account_id,
       title: newVal ? "Virtual Card Suspended" : "Virtual Card Reactivated",
       body: newVal
-        ? "Your GHOB Virtual Visa Card has been temporarily suspended by administration. Contact support for assistance."
-        : "Your GHOB Virtual Visa Card has been reactivated. You may resume online transactions immediately.",
+        ? "Your BKU Virtual Visa Card has been temporarily suspended by administration. Contact support for assistance."
+        : "Your BKU Virtual Visa Card has been reactivated. You may resume online transactions immediately.",
       is_read: false,
     });
     toast.success(`Card ${newVal ? "frozen" : "unfrozen"} for ${app.account_name}.`);

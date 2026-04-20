@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import bankLogo from "@/assets/federalpax-logo.png";
+import bankLogo from "@/assets/bankunited-logo.png";
 import { Eye, EyeOff, ArrowLeft, Crown } from "lucide-react";
 import { trackLogin } from "@/lib/supabase";
 
@@ -45,7 +45,7 @@ export default function CASLogin() {
               </div>
             </div>
             <h1 className="text-white font-bold text-lg text-center leading-tight">CEO Administrative<br />Access System</h1>
-            <p className="text-white/40 text-xs mt-1">FederalPax Banking · CAS</p>
+            <p className="text-white/40 text-xs mt-1">BankUnited · CAS</p>
           </div>
 
           <form onSubmit={handleLogin} className="space-y-4">

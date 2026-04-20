@@ -13,7 +13,7 @@ import {
   Eye, EyeOff, Search, Activity, Calendar, Timer,
   Power, Trash2, Download, Unlock, CreditCard,
 } from "lucide-react";
-import bankLogo from "@/assets/federalpax-logo.png";
+import bankLogo from "@/assets/bankunited-logo.png";
 import { toast } from "sonner";
 import TransactionReceiptModal from "@/components/features/TransactionReceiptModal";
 import EditTransactionModal from "@/components/features/EditTransactionModal";
@@ -29,6 +29,7 @@ import CASVirtualCardReview from "@/components/features/CASVirtualCardReview";
 import CurrencyConverterWidget from "@/components/features/CurrencyConverterWidget";
 import CASPlatformControls from "@/components/features/CASPlatformControls";
 import CASAuditLogPanel from "@/components/features/CASAuditLogPanel";
+import CASCurrencySettings from "@/components/features/CASCurrencySettings";
 
 type CASTab = "home" | "accounts" | "chats" | "notifications";
 
@@ -38,6 +39,8 @@ type TimerTarget = {
   name: string;
   statusField: "is_frozen" | "is_closed" | "is_inactive";
 };
+
+const ALL_CURRENCIES = ["USD", "EUR", "GBP", "JPY", "AUD", "CAD", "CHF", "CNY", "NGN", "ZAR", "INR", "BRL", "MXN", "AED", "SAR"];
 
 export default function CASDashboard() {
   const navigate = useNavigate();
@@ -76,6 +79,7 @@ export default function CASDashboard() {
   const [stmtTo, setStmtTo] = useState("");
   const [showPlatformControls, setShowPlatformControls] = useState(false);
   const [showAuditLog, setShowAuditLog] = useState(false);
+  const [showCurrencySettings, setShowCurrencySettings] = useState(false);
 
   useEffect(() => {
     const raw = localStorage.getItem("ghob_cas_session");
@@ -107,6 +111,23 @@ export default function CASDashboard() {
   const handleLogout = () => { localStorage.removeItem("ghob_cas_session"); navigate("/cas/login"); };
 
   const totalBalance = accounts.reduce((s, a) => s + Number(a.balance), 0);
+  // Platform aggregate counters for savings/loans/bills
+  const [savingsTotal, setSavingsTotal] = useState(0);
+  const [loansTotal, setLoansTotal] = useState(0);
+  const [billsTotal, setBillsTotal] = useState(0);
+
+  useEffect(() => {
+    // Fetch savings goals, loan applications, bill payments totals
+    Promise.all([
+      supabase.from("savings_goals").select("current_amount"),
+      supabase.from("loan_applications").select("amount").in("status", ["approved"]),
+      supabase.from("bill_payments").select("amount").eq("status", "completed"),
+    ]).then(([sg, la, bp]) => {
+      if (sg.data) setSavingsTotal(sg.data.reduce((s: number, r: {current_amount: number}) => s + Number(r.current_amount), 0));
+      if (la.data) setLoansTotal(la.data.reduce((s: number, r: {amount: number}) => s + Number(r.amount), 0));
+      if (bp.data) setBillsTotal(bp.data.reduce((s: number, r: {amount: number}) => s + Number(r.amount), 0));
+    });
+  }, [accounts]);
   const totalIn = transactions.filter(t => t.type === "deposit" || t.type === "credit").reduce((s, t) => s + Number(t.amount), 0);
   const totalOut = transactions.filter(t => t.type === "transfer" || t.type === "debit").reduce((s, t) => s + Number(t.amount), 0);
   const unreadNotifs = notifications.filter(n => !n.is_read).length;
@@ -132,7 +153,7 @@ export default function CASDashboard() {
       running += isIn ? Number(t.amount) : -Number(t.amount);
       return [new Date(t.custom_timestamp).toLocaleDateString(), t.description || t.recipient_name || t.type, isIn ? "+" + t.amount : "-" + t.amount, running.toFixed(2)];
     });
-    const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"/><title>FederalPax Banking Statement</title><style>*{margin:0;padding:0;box-sizing:border-box;}body{font-family:Inter,Arial,sans-serif;background:#f8f9fa;padding:32px;}h1{font-size:20px;color:#0A1E3F;}h2{font-size:14px;color:#555;margin-top:4px;}.summary{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin:24px 0;}.card{background:#0A1E3F;color:#fff;border-radius:12px;padding:16px;}.card-label{font-size:11px;opacity:0.6;}.card-val{font-size:20px;font-weight:700;margin-top:4px;color:#D4AF37;}table{width:100%;border-collapse:collapse;margin-top:16px;}th{background:#0A1E3F;color:#D4AF37;padding:10px;font-size:12px;text-align:left;}td{padding:9px 10px;font-size:12px;border-bottom:1px solid #eee;}tr:nth-child(even){background:#f4f4f4;}.footer{margin-top:24px;font-size:11px;color:#999;text-align:center;}</style></head><body><h1>🏦 FederalPax Banking</h1><h2>Official Bank Statement</h2><p style="margin-top:8px;font-size:12px;color:#666">${acc.account_name} &nbsp;|&nbsp; ${acc.account_number} &nbsp;|&nbsp; Tier ${acc.account_tier || 1} &nbsp;|&nbsp; ${stmtFrom || "All time"} — ${stmtTo || "present"}</p><div class="summary"><div class="card"><div class="card-label">Total Money In</div><div class="card-val">${acc.currency} ${tIn.toFixed(2)}</div></div><div class="card"><div class="card-label">Total Money Out</div><div class="card-val">${acc.currency} ${tOut.toFixed(2)}</div></div><div class="card"><div class="card-label">Net Change</div><div class="card-val">${acc.currency} ${(tIn - tOut).toFixed(2)}</div></div><div class="card"><div class="card-label">Closing Balance</div><div class="card-val">${acc.currency} ${Number(acc.balance).toFixed(2)}</div></div></div><table><tr><th>Date</th><th>Description</th><th>Amount</th><th>Running Balance</th></tr>${rows.map(r => `<tr><td>${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td><td>${r[3]}</td></tr>`).join("")}</table><div class="footer">Generated by FederalPax Banking CEO Administration on ${new Date().toLocaleString()} &nbsp;|&nbsp; FederalPax Banking © ${new Date().getFullYear()}</div></body></html>`;
+    const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"/><title>BankUnited Statement</title><style>*{margin:0;padding:0;box-sizing:border-box;}body{font-family:Inter,Arial,sans-serif;background:#f8f9fa;padding:32px;}h1{font-size:20px;color:#0A1E3F;}h2{font-size:14px;color:#555;margin-top:4px;}.summary{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin:24px 0;}.card{background:#0A1E3F;color:#fff;border-radius:12px;padding:16px;}.card-label{font-size:11px;opacity:0.6;}.card-val{font-size:20px;font-weight:700;margin-top:4px;color:#D4AF37;}table{width:100%;border-collapse:collapse;margin-top:16px;}th{background:#0A1E3F;color:#D4AF37;padding:10px;font-size:12px;text-align:left;}td{padding:9px 10px;font-size:12px;border-bottom:1px solid #eee;}tr:nth-child(even){background:#f4f4f4;}.footer{margin-top:24px;font-size:11px;color:#999;text-align:center;}</style></head><body><h1>🏦 BankUnited</h1><h2>Official Bank Statement</h2><p style="margin-top:8px;font-size:12px;color:#666">${acc.account_name} &nbsp;|&nbsp; ${acc.account_number} &nbsp;|&nbsp; Tier ${acc.account_tier || 1} &nbsp;|&nbsp; ${stmtFrom || "All time"} — ${stmtTo || "present"}</p><div class="summary"><div class="card"><div class="card-label">Total Money In</div><div class="card-val">${acc.currency} ${tIn.toFixed(2)}</div></div><div class="card"><div class="card-label">Total Money Out</div><div class="card-val">${acc.currency} ${tOut.toFixed(2)}</div></div><div class="card"><div class="card-label">Net Change</div><div class="card-val">${acc.currency} ${(tIn - tOut).toFixed(2)}</div></div><div class="card"><div class="card-label">Closing Balance</div><div class="card-val">${acc.currency} ${Number(acc.balance).toFixed(2)}</div></div></div><table><tr><th>Date</th><th>Description</th><th>Amount</th><th>Running Balance</th></tr>${rows.map(r => `<tr><td>${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td><td>${r[3]}</td></tr>`).join("")}</table><div class="footer">Generated by BankUnited CEO Administration on ${new Date().toLocaleString()} &nbsp;|&nbsp; © 2015 BankUnited. All rights reserved.</div></body></html>`;
     const w = window.open("", "_blank");
     if (w) { w.document.write(html); w.document.close(); }
   };
@@ -470,6 +491,7 @@ export default function CASDashboard() {
   // ---- PANEL VIEWS ----
   if (tab === "chats") return <><CASChatPanel accounts={accounts} onClose={() => setTab("home")} /><CASBottomNav active={tab} onHome={() => setTab("home")} onAccounts={() => setTab("accounts")} onChats={() => setTab("chats")} onNotifications={() => setTab("notifications")} notifCount={unreadNotifs} chatCount={unreadChats} /></>;
   if (showAuditLog) return <CASAuditLogPanel accounts={accounts} onClose={() => setShowAuditLog(false)} />;
+  if (showCurrencySettings) return <CASCurrencySettings accounts={accounts} onClose={() => setShowCurrencySettings(false)} />;
   if (showPlatformControls) return <CASPlatformControls accounts={accounts} onClose={() => setShowPlatformControls(false)} />;
   if (showCardReview) return <CASVirtualCardReview onClose={() => setShowCardReview(false)} accounts={accounts} />;
   if (tab === "notifications") return <><CASNotificationsPanel accounts={accounts} onClose={() => setTab("home")} /><CASBottomNav active={tab} onHome={() => setTab("home")} onAccounts={() => setTab("accounts")} onChats={() => setTab("chats")} onNotifications={() => setTab("notifications")} notifCount={unreadNotifs} chatCount={unreadChats} /></>;
@@ -564,8 +586,8 @@ export default function CASDashboard() {
             <Crown size={18} className="text-gray-900" />
           </div>
           <div>
-            <div className="text-white/50 text-xs">CEO Administrative System</div>
-            <div className="text-white font-bold text-sm">FederalPax · CAS</div>
+            <div className="text-white/40 text-xs">BKU · CEO Administrative System</div>
+            <div className="text-white font-bold text-sm">BankUnited · CAS</div>
           </div>
         </div>
         <div className="flex items-center gap-3">
@@ -621,6 +643,22 @@ export default function CASDashboard() {
           </div>
         </div>
 
+        {/* Platform Aggregate Counters */}
+        <div className="grid grid-cols-3 gap-2">
+          <div className="rounded-2xl p-3 text-center" style={{ background: "rgba(200,155,50,0.07)", border: "1px solid rgba(200,155,50,0.2)" }}>
+            <div style={{ color: "hsl(43,85%,60%)" }} className="font-bold text-sm">${(savingsTotal / 1000).toFixed(1)}K</div>
+            <div className="text-white/40 text-xs mt-0.5">Total Saved</div>
+          </div>
+          <div className="rounded-2xl p-3 text-center" style={{ background: "rgba(59,130,246,0.07)", border: "1px solid rgba(59,130,246,0.2)" }}>
+            <div className="text-blue-400 font-bold text-sm">${(loansTotal / 1000).toFixed(1)}K</div>
+            <div className="text-white/40 text-xs mt-0.5">Active Loans</div>
+          </div>
+          <div className="rounded-2xl p-3 text-center" style={{ background: "rgba(34,197,94,0.07)", border: "1px solid rgba(34,197,94,0.2)" }}>
+            <div className="text-green-400 font-bold text-sm">${(billsTotal / 1000).toFixed(1)}K</div>
+            <div className="text-white/40 text-xs mt-0.5">Bills Paid</div>
+          </div>
+        </div>
+
         {/* Quick Actions */}
         <div className="grid grid-cols-2 gap-3">
           <button onClick={() => setShowDeposit(true)} className="gold-btn py-3 text-xs font-semibold flex items-center justify-center gap-1.5">
@@ -650,7 +688,7 @@ export default function CASDashboard() {
           </div>
           <div>
             <div className="text-white font-semibold text-sm">Download User Statement</div>
-            <div className="text-white/40 text-xs">FederalPax official statement for any account</div>
+            <div className="text-white/40 text-xs">BankUnited official statement for any account</div>
           </div>
         </button>
         {showStatementDownload && (
@@ -669,6 +707,17 @@ export default function CASDashboard() {
             </button>
           </div>
         )}
+
+        {/* Currency Settings */}
+        <button onClick={() => setShowCurrencySettings(true)} className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl text-left" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)" }}>
+          <div className="w-10 h-10 rounded-2xl flex items-center justify-center flex-shrink-0" style={{ background: "rgba(200,155,50,0.12)" }}>
+            <span style={{ fontSize: 18 }}>🌐</span>
+          </div>
+          <div>
+            <div className="text-white font-semibold text-sm">IDA Currency Settings</div>
+            <div className="text-white/40 text-xs">Manage multi-currency per account · {ALL_CURRENCIES.length} currencies</div>
+          </div>
+        </button>
 
         {/* Virtual Card Applications */}
         <button onClick={() => setShowCardReview(true)} className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl text-left transition-colors" style={{ background: "rgba(200,155,50,0.06)", border: "1px solid rgba(200,155,50,0.2)" }}>

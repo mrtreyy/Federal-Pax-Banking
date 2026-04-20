@@ -307,7 +307,7 @@ export default function LoanApplicationPage({ account, onBack }: Props) {
                   <div onClick={() => setAgreed(!agreed)} className="w-5 h-5 rounded-md flex items-center justify-center flex-shrink-0 mt-0.5" style={{ background: agreed ? "hsl(43,85%,55%)" : "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.2)" }}>
                     {agreed && <CheckCircle size={13} className="text-gray-900" />}
                   </div>
-                  <span className="text-white/50 text-xs leading-relaxed">I confirm the information provided is accurate and I agree to FederalPax Banking's loan terms and conditions.</span>
+                  <span className="text-white/50 text-xs leading-relaxed">I confirm the information provided is accurate and I agree to BankUnited's loan terms and conditions.</span>
                 </label>
                 <div className="grid grid-cols-2 gap-3">
                   <button onClick={() => setStep(2)} className="py-3 rounded-2xl text-white/60 text-sm" style={{ background: "rgba(255,255,255,0.07)" }}>Back</button>

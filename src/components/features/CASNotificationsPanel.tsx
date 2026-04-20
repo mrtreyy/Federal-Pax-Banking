@@ -99,7 +99,7 @@ export default function CASNotificationsPanel({ accounts, onClose }: Props) {
           account_id: targetAccountId,
           target: targetAccountId,
           title: "File from CEO Administration",
-          body: `A file has been shared with you by GHOB CEO Administration: ${file.name}`,
+          body: `A file has been shared with you by BankUnited CEO Administration: ${file.name}`,
           is_read: false,
         });
       }

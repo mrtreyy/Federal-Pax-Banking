@@ -109,8 +109,8 @@ export default function CASAuditLogPanel({ accounts, onClose }: Props) {
       account_id: log.target_account_id,
       type: "credit",
       amount: amount,
-      description: "Action revoked by Global Health Online Banking administration",
-      sender_name: "GHOB Administration",
+      description: "Action revoked by BankUnited administration",
+      sender_name: "BankUnited Administration",
       admin_override: true,
       custom_timestamp: new Date().toISOString(),
     });
@@ -126,7 +126,7 @@ export default function CASAuditLogPanel({ accounts, onClose }: Props) {
       account_id: log.target_account_id,
       target: log.target_account_id,
       title: "Transaction Reversed by Administration",
-      body: `A transaction on your account has been reviewed and reversed by GHOB CEO Administration. The amount has been returned to your account. Reason: Action revoked by Global Health Online Banking administration.`,
+      body: `A transaction on your account has been reviewed and reversed by BankUnited CEO Administration. The amount has been returned to your account. Reason: Action revoked by BankUnited administration.`,
       is_read: false,
     });
 

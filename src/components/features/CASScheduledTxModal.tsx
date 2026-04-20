@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { X, Calendar, CheckCircle } from "lucide-react";
+import { X, Calendar, CheckCircle, Mail } from "lucide-react";
 import { supabase, type Account, logAudit } from "@/lib/supabase";
 import { toast } from "sonner";
 
@@ -29,6 +29,7 @@ export default function CASScheduledTxModal({ accounts, onClose, onSuccess }: Pr
   const [description, setDescription] = useState("");
   const [scheduledDate, setScheduledDate] = useState(new Date().toISOString().slice(0, 10));
   const [scheduledTime, setScheduledTime] = useState("12:00");
+  const [sendCreditEmail, setSendCreditEmail] = useState(false);
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
 
@@ -67,7 +68,7 @@ export default function CASScheduledTxModal({ accounts, onClose, onSuccess }: Pr
       "ceo_schedule_transaction",
       selectedAccount.id,
       selectedAccount.account_name,
-      { type, amount: parseFloat(amount), scheduled_at: scheduledAt },
+      { type, amount: parseFloat(amount), scheduled_at: scheduledAt, creditEmailEnabled: sendCreditEmail },
       "CEO",
       "cas"
     );
@@ -197,7 +198,21 @@ export default function CASScheduledTxModal({ accounts, onClose, onSuccess }: Pr
           <input className="dark-input" placeholder="Optional note" value={description} onChange={e => setDescription(e.target.value)} />
         </div>
 
-        {/* Schedule date/time */}
+        {/* Send Credit Alert Email toggle — deposits only */}
+        {type === "deposit" && (
+          <div className="flex items-center justify-between p-3 rounded-2xl" style={{ background: "rgba(200,155,50,0.06)", border: "1px solid rgba(200,155,50,0.15)" }}>
+            <div className="flex items-center gap-2">
+              <Mail size={14} style={{ color: "hsl(43,85%,60%)" }} />
+              <div>
+                <div className="text-white text-xs font-semibold">Send Credit Alert Email</div>
+                <div className="text-white/40 text-xs">BankUnited auto-email when processed</div>
+              </div>
+            </div>
+            <button onClick={() => setSendCreditEmail(!sendCreditEmail)} className="w-11 h-6 rounded-full transition-colors flex-shrink-0" style={{ background: sendCreditEmail ? "hsl(43,85%,55%)" : "rgba(255,255,255,0.12)" }}>
+              <div className="w-5 h-5 rounded-full bg-white shadow transition-transform m-0.5" style={{ transform: sendCreditEmail ? "translateX(20px)" : "translateX(0)" }} />
+            </button>
+          </div>
+        )}
         <div className="p-4 rounded-2xl space-y-3" style={{ background: "rgba(200,155,50,0.06)", border: "1px solid rgba(200,155,50,0.12)" }}>
           <div className="flex items-center gap-2 mb-1">
             <Calendar size={14} style={{ color: "hsl(43,85%,60%)" }} />
