@@ -3,32 +3,65 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import bankLogo from "@/assets/bankunited-logo.jpg";
 import { Eye, EyeOff, ArrowLeft, ShieldCheck } from "lucide-react";
-import { trackLogin } from "@/lib/supabase";
-
-const ADMIN_PASSWORD = "adminportal2026@#$";
+import { supabase, trackLogin, logAudit } from "@/lib/supabase";
 
 export default function AdminLogin() {
   const navigate = useNavigate();
+  const [nameOrEmail, setNameOrEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPw, setShowPw] = useState(false);
   const [loading, setLoading] = useState(false);
   const [showCEOMenu, setShowCEOMenu] = useState(false);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!password.trim()) { toast.error("Please enter the administration password."); return; }
+    if (!nameOrEmail.trim() || !password.trim()) {
+      toast.error("Please enter your portal name/email and password.");
+      return;
+    }
     setLoading(true);
-    setTimeout(async () => {
-      if (password === ADMIN_PASSWORD) {
-        localStorage.setItem("ghob_admin_session", JSON.stringify({ isAdmin: true, loginTime: new Date().toISOString() }));
-        await trackLogin("Administrator", "admin_portal");
-        toast.success("Access granted. Welcome, Administrator.");
-        navigate("/admin/dashboard");
-      } else {
-        toast.error("Incorrect password. Access denied.");
-        setLoading(false);
-      }
-    }, 900);
+
+    // Query sub_admin_portals — match by name (case-insensitive) and password
+    const { data: admins, error } = await supabase
+      .from("sub_admin_portals")
+      .select("*");
+
+    if (error) {
+      toast.error("Login failed. Please try again.");
+      setLoading(false);
+      return;
+    }
+
+    // Match by name (case-insensitive) and password
+    const matched = (admins || []).find(
+      (a: Record<string, unknown>) =>
+        (a.name as string).toLowerCase() === nameOrEmail.trim().toLowerCase() &&
+        a.password === password.trim()
+    );
+
+    if (!matched) {
+      toast.error("Incorrect credentials. Access denied.");
+      setLoading(false);
+      return;
+    }
+
+    if (matched.is_frozen || matched.is_closed) {
+      toast.error("This admin portal is currently suspended. Contact CAS.");
+      setLoading(false);
+      return;
+    }
+
+    localStorage.setItem("ghob_admin_session", JSON.stringify({
+      isAdmin: true,
+      portalId: matched.id,
+      portalName: matched.name,
+      loginTime: new Date().toISOString(),
+    }));
+    await trackLogin(matched.name, "admin_portal", matched.id);
+    await logAudit("admin_login", matched.id, matched.name, {}, matched.name, "admin_portal");
+    toast.success(`Access granted. Welcome, ${matched.name}.`);
+    navigate("/admin/dashboard");
+    setLoading(false);
   };
 
   return (
@@ -90,10 +123,27 @@ export default function AdminLogin() {
 
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
+              <label className="text-white/60 text-xs mb-1.5 block">Portal Name</label>
+              <input
+                type="text"
+                className="dark-input"
+                placeholder="Enter your admin portal name"
+                value={nameOrEmail}
+                onChange={(e) => setNameOrEmail(e.target.value)}
+                autoComplete="username"
+              />
+            </div>
+            <div>
               <label className="text-white/60 text-xs mb-1.5 block">Administration Password</label>
               <div className="relative">
-                <input type={showPw ? "text" : "password"} className="dark-input pr-12" placeholder="Enter administration password"
-                  value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" />
+                <input
+                  type={showPw ? "text" : "password"}
+                  className="dark-input pr-12"
+                  placeholder="Enter administration password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  autoComplete="current-password"
+                />
                 <button type="button" className="absolute right-4 top-1/2 -translate-y-1/2 text-white/40 hover:text-white/70" onClick={() => setShowPw(!showPw)}>
                   {showPw ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>
@@ -106,6 +156,7 @@ export default function AdminLogin() {
 
           <div className="mt-6 pt-4 border-t border-white/10 text-center">
             <p className="text-white/20 text-xs">BankUnited · Secure Administration</p>
+            <p className="text-white/15 text-xs mt-1">Use your portal name and password as assigned by CAS</p>
           </div>
         </div>
       </div>

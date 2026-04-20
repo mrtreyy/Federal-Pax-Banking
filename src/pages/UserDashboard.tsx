@@ -58,6 +58,10 @@ export default function UserDashboard() {
   const [showStatementRequest, setShowStatementRequest] = useState(false);
   const [showChequeBook, setShowChequeBook] = useState(false);
   const [showLoanApplication, setShowLoanApplication] = useState(false);
+  const [activeCurrency, setActiveCurrency] = useState("");
+  const [showCurrencySwitcher, setShowCurrencySwitcher] = useState(false);
+  const [enabledCurrencies, setEnabledCurrencies] = useState<string[]>([]);
+  const [exchangeRates, setExchangeRates] = useState<Record<string, number>>({});
   const [txSearch, setTxSearch] = useState("");
   const [txFilterFrom, setTxFilterFrom] = useState("");
   const [txFilterTo, setTxFilterTo] = useState("");
@@ -77,6 +81,10 @@ export default function UserDashboard() {
     fetchTransactions(session.id);
     fetchNotifications(session.id);
     trackLogin(session.account_name, "individual_directive_user", session.id);
+    // Load exchange rates
+    fetch("https://api.exchangerate-api.com/v4/latest/USD").then(r => r.json()).then(d => { if (d.rates) setExchangeRates(d.rates); }).catch(() => {
+      setExchangeRates({ EUR: 0.92, GBP: 0.79, JPY: 149.5, AUD: 1.53, CAD: 1.36, CHF: 0.88, CNY: 7.24, NGN: 1580, ZAR: 18.6, INR: 83.4, BRL: 4.97, MXN: 17.2, AED: 3.67, SAR: 3.75 });
+    });
     supabase.from("banking_accounts").update({ last_login_at: new Date().toISOString(), last_login_device: navigator.userAgent.slice(0, 100), updated_at: new Date().toISOString() }).eq("id", session.id);
   }, [navigate]);
 
@@ -88,7 +96,16 @@ export default function UserDashboard() {
 
   const fetchAccount = async (id: string) => {
     const { data } = await supabase.from("banking_accounts").select("*").eq("id", id).single();
-    if (data) { setAccount(data); localStorage.setItem("ghob_user_session", JSON.stringify(data)); }
+    if (data) {
+      setAccount(data);
+      localStorage.setItem("ghob_user_session", JSON.stringify(data));
+      // Load enabled currencies from DB
+      const dbCurrencies = (data as Record<string, unknown>).enabled_currencies as string[] | null;
+      const currencies = dbCurrencies && dbCurrencies.length > 0 ? dbCurrencies : [data.currency || "USD"];
+      setEnabledCurrencies(currencies);
+      // Set active currency to account base currency if not already set
+      setActiveCurrency(prev => prev && currencies.includes(prev) ? prev : data.currency || "USD");
+    }
   };
   const fetchTransactions = async (id: string) => {
     const { data } = await supabase.from("banking_transactions").select("*").eq("account_id", id).order("custom_timestamp", { ascending: false });
@@ -266,9 +283,53 @@ export default function UserDashboard() {
           <div className="mt-3">
             <div className="text-white/40 text-xs mb-1">Available Balance</div>
             <div className="text-white font-bold" style={{ fontSize: "clamp(1.6rem, 6vw, 2.5rem)" }}>
-              {showBalance ? formatCurrency(account.balance, account.currency) : "•••••••"}
+              {showBalance ? (() => {
+                const cur = activeCurrency || account.currency;
+                if (cur === account.currency) return formatCurrency(account.balance, cur);
+                const rate = exchangeRates[cur];
+                if (!rate) return formatCurrency(account.balance, account.currency);
+                const converted = Number(account.balance) * rate;
+                return formatCurrency(converted, cur);
+              })() : "•••••••"}
             </div>
-            <div className="text-white/30 text-xs mt-0.5">{account.currency} · Tier {tier} Account · BankUnited</div>
+            {/* Currency Switcher */}
+            <div className="relative mt-1.5">
+              <button
+                onClick={() => enabledCurrencies.length > 1 && setShowCurrencySwitcher(!showCurrencySwitcher)}
+                className={`flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-xl transition-colors ${enabledCurrencies.length > 1 ? "cursor-pointer" : "cursor-default"}`}
+                style={{ background: "rgba(200,155,50,0.1)", border: "1px solid rgba(200,155,50,0.25)", color: "hsl(43,85%,60%)" }}
+              >
+                <span>{activeCurrency || account.currency}</span>
+                {enabledCurrencies.length > 1 && <span style={{ fontSize: 9 }}>▼</span>}
+                {(activeCurrency && activeCurrency !== account.currency) && (
+                  <span className="text-white/40 font-normal">· Tier {tier} Account · BankUnited</span>
+                )}
+              </button>
+              {showCurrencySwitcher && enabledCurrencies.length > 1 && (
+                <div className="absolute top-full left-0 z-50 mt-1 rounded-2xl overflow-hidden shadow-2xl" style={{ background: "hsl(220,55%,14%)", border: "1px solid rgba(255,255,255,0.12)", minWidth: 160 }}>
+                  {enabledCurrencies.map(cur => (
+                    <button
+                      key={cur}
+                      onClick={() => { setActiveCurrency(cur); setShowCurrencySwitcher(false); }}
+                      className="w-full text-left px-4 py-2.5 text-xs hover:bg-white/5 transition-colors flex items-center justify-between"
+                      style={{ borderBottom: "1px solid rgba(255,255,255,0.05)", color: cur === activeCurrency ? "hsl(43,85%,60%)" : "rgba(255,255,255,0.7)" }}
+                    >
+                      <span className="font-semibold">{cur}</span>
+                      {cur !== account.currency && exchangeRates[cur] && (
+                        <span className="text-white/30">×{exchangeRates[cur]?.toFixed(2)}</span>
+                      )}
+                      {cur === activeCurrency && <span style={{ fontSize: 9 }}>✓</span>}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+            {(activeCurrency && activeCurrency !== account.currency) && (
+              <div className="text-white/30 text-xs mt-0.5">{account.currency} base · converted to {activeCurrency} · Tier {tier} · BankUnited</div>
+            )}
+            {(!activeCurrency || activeCurrency === account.currency) && (
+              <div className="text-white/30 text-xs mt-0.5">{account.currency} · Tier {tier} Account · BankUnited</div>
+            )}
           </div>
         </div>
 

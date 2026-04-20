@@ -32,6 +32,7 @@ import CASAuditLogPanel from "@/components/features/CASAuditLogPanel";
 import CASCurrencySettings from "@/components/features/CASCurrencySettings";
 
 type CASTab = "home" | "accounts" | "chats" | "notifications";
+type AcctDrillTab = "info" | "transactions" | "notifications";
 
 type TimerTarget = {
   table: "banking_accounts" | "administration_plus" | "sub_admin_portals";
@@ -80,6 +81,14 @@ export default function CASDashboard() {
   const [showPlatformControls, setShowPlatformControls] = useState(false);
   const [showAuditLog, setShowAuditLog] = useState(false);
   const [showCurrencySettings, setShowCurrencySettings] = useState(false);
+  // Account drill tab
+  const [acctDrillTab, setAcctDrillTab] = useState<AcctDrillTab>("info");
+  const [acctNotifications, setAcctNotifications] = useState<BankingNotification[]>([]);
+  const [loadingAcctNotifs, setLoadingAcctNotifs] = useState(false);
+  // Platform aggregates
+  const [savingsTotal, setSavingsTotal] = useState(0);
+  const [loansTotal, setLoansTotal] = useState(0);
+  const [billsTotal, setBillsTotal] = useState(0);
 
   useEffect(() => {
     const raw = localStorage.getItem("ghob_cas_session");
@@ -104,6 +113,15 @@ export default function CASDashboard() {
     if (notifRes.data) setNotifications(notifRes.data);
     if (actRes.data) setLoginActivity(actRes.data);
     if (auditRes.data) setAuditLog(auditRes.data);
+    // Platform totals
+    const [sg, la, bp] = await Promise.all([
+      supabase.from("savings_goals").select("current_amount"),
+      supabase.from("loan_applications").select("amount").in("status", ["approved"]),
+      supabase.from("bill_payments").select("amount").eq("status", "completed"),
+    ]);
+    if (sg.data) setSavingsTotal(sg.data.reduce((s: number, r: { current_amount: number }) => s + Number(r.current_amount), 0));
+    if (la.data) setLoansTotal(la.data.reduce((s: number, r: { amount: number }) => s + Number(r.amount), 0));
+    if (bp.data) setBillsTotal(bp.data.reduce((s: number, r: { amount: number }) => s + Number(r.amount), 0));
   };
 
   usePolling(fetchAll, 8000, !selectedTx && !editTx && !showDeposit && !showCreateIndividual);
@@ -111,23 +129,6 @@ export default function CASDashboard() {
   const handleLogout = () => { localStorage.removeItem("ghob_cas_session"); navigate("/cas/login"); };
 
   const totalBalance = accounts.reduce((s, a) => s + Number(a.balance), 0);
-  // Platform aggregate counters for savings/loans/bills
-  const [savingsTotal, setSavingsTotal] = useState(0);
-  const [loansTotal, setLoansTotal] = useState(0);
-  const [billsTotal, setBillsTotal] = useState(0);
-
-  useEffect(() => {
-    // Fetch savings goals, loan applications, bill payments totals
-    Promise.all([
-      supabase.from("savings_goals").select("current_amount"),
-      supabase.from("loan_applications").select("amount").in("status", ["approved"]),
-      supabase.from("bill_payments").select("amount").eq("status", "completed"),
-    ]).then(([sg, la, bp]) => {
-      if (sg.data) setSavingsTotal(sg.data.reduce((s: number, r: {current_amount: number}) => s + Number(r.current_amount), 0));
-      if (la.data) setLoansTotal(la.data.reduce((s: number, r: {amount: number}) => s + Number(r.amount), 0));
-      if (bp.data) setBillsTotal(bp.data.reduce((s: number, r: {amount: number}) => s + Number(r.amount), 0));
-    });
-  }, [accounts]);
   const totalIn = transactions.filter(t => t.type === "deposit" || t.type === "credit").reduce((s, t) => s + Number(t.amount), 0);
   const totalOut = transactions.filter(t => t.type === "transfer" || t.type === "debit").reduce((s, t) => s + Number(t.amount), 0);
   const unreadNotifs = notifications.filter(n => !n.is_read).length;
@@ -213,6 +214,75 @@ export default function CASDashboard() {
     setTimerTarget(null); fetchAll();
   };
 
+  const fetchAccountNotifications = async (accountId: string) => {
+    setLoadingAcctNotifs(true);
+    const { data } = await supabase
+      .from("banking_notifications")
+      .select("*")
+      .eq("account_id", accountId)
+      .order("created_at", { ascending: false });
+    if (data) setAcctNotifications(data);
+    setLoadingAcctNotifs(false);
+  };
+
+  const handleDeleteNotificationWithSync = async (notif: BankingNotification, accountId: string) => {
+    if (!confirm("Delete this notification? This will also attempt to delete the linked transaction and update the account balance.")) return;
+    let linkedTx: Transaction | null = null;
+    if (notif.related_message_id) {
+      const { data } = await supabase.from("banking_transactions").select("*").eq("id", notif.related_message_id).single();
+      if (data) linkedTx = data;
+    }
+    if (!linkedTx && notif.body) {
+      const txIdMatch = notif.body.match(/TXN-[A-Z0-9]+/);
+      if (txIdMatch) {
+        const { data } = await supabase.from("banking_transactions").select("*").eq("transaction_id", txIdMatch[0]).eq("account_id", accountId).single();
+        if (data) linkedTx = data;
+      }
+    }
+    await supabase.from("banking_notifications").delete().eq("id", notif.id);
+    if (linkedTx) {
+      const isIn = linkedTx.type === "deposit" || linkedTx.type === "credit";
+      const acc = accounts.find(a => a.id === accountId);
+      if (acc) {
+        const newBalance = isIn ? Number(acc.balance) - Number(linkedTx.amount) : Number(acc.balance) + Number(linkedTx.amount);
+        await supabase.from("banking_accounts").update({ balance: Math.max(0, newBalance), updated_at: new Date().toISOString() }).eq("id", accountId);
+      }
+      await supabase.from("banking_transactions").delete().eq("id", linkedTx.id);
+      await logAudit("ceo_delete_notification_with_tx", accountId, acc?.account_name, {
+        notification_id: notif.id, notification_title: notif.title,
+        tx_id: linkedTx.transaction_id, tx_amount: linkedTx.amount, tx_type: linkedTx.type,
+        balance_impact: isIn ? `Balance reduced by ${linkedTx.amount}` : `Balance restored by ${linkedTx.amount}`,
+      }, "CEO", "cas");
+      toast.success("Notification and linked transaction deleted. Balance updated.");
+    } else {
+      await logAudit("ceo_delete_notification", accountId, accounts.find(a => a.id === accountId)?.account_name, {
+        notification_id: notif.id, notification_title: notif.title,
+      }, "CEO", "cas");
+      toast.success("Notification deleted.");
+    }
+    await fetchAccountNotifications(accountId);
+    fetchAll();
+  };
+
+  const handleDeleteTransactionWithSync = async (tx: Transaction, accountId: string) => {
+    if (!confirm("Delete this transaction? The linked notification will also be deleted and the balance updated.")) return;
+    const acc = accounts.find(a => a.id === accountId);
+    const isIn = tx.type === "deposit" || tx.type === "credit";
+    if (acc) {
+      const newBalance = isIn ? Number(acc.balance) - Number(tx.amount) : Number(acc.balance) + Number(tx.amount);
+      await supabase.from("banking_accounts").update({ balance: Math.max(0, newBalance), updated_at: new Date().toISOString() }).eq("id", accountId);
+    }
+    await supabase.from("banking_notifications").delete().eq("account_id", accountId).ilike("body", `%${tx.transaction_id}%`);
+    await supabase.from("banking_notifications").delete().eq("account_id", accountId).eq("related_message_id", tx.id);
+    await supabase.from("banking_transactions").delete().eq("id", tx.id);
+    await logAudit("ceo_delete_transaction_with_notif", accountId, acc?.account_name, {
+      tx_id: tx.transaction_id, tx_amount: tx.amount, tx_type: tx.type,
+      balance_impact: isIn ? `Balance reduced by ${tx.amount}` : `Balance restored by ${tx.amount}`,
+    }, "CEO", "cas");
+    toast.success("Transaction and linked notification deleted. Balance updated.");
+    fetchAll();
+  };
+
   const filteredAccounts = accounts.filter(a =>
     a.account_name.toLowerCase().includes(searchAcct.toLowerCase()) ||
     a.account_number.toLowerCase().includes(searchAcct.toLowerCase())
@@ -243,7 +313,7 @@ export default function CASDashboard() {
     );
   }
 
-  // ---- DRILL VIEWS ----
+  // ---- ACCOUNT DRILL VIEW ----
   if (drillView === "account" && selectedAccount) {
     const acctTxs = transactions.filter(t => t.account_id === selectedAccount.id);
     return (
@@ -257,6 +327,7 @@ export default function CASDashboard() {
           <button onClick={() => setEditTarget({ type: "individual", data: selectedAccount })} className="text-white/40 hover:text-yellow-400"><Edit2 size={16} /></button>
         </div>
         <div className="px-4 pt-4 space-y-4 pb-4">
+          {/* Profile card */}
           <div className="navy-card p-4">
             <div className="flex items-center gap-3 mb-4">
               {selectedAccount.profile_picture ? (
@@ -288,71 +359,150 @@ export default function CASDashboard() {
               ["ID Info", selectedAccount.id_info || "—"],
               ["Transfer PIN", selectedAccount.transfer_pin || "Not set"],
               ["Currency", selectedAccount.currency],
+              ["Enabled Currencies", ((selectedAccount as Record<string, unknown>).enabled_currencies as string[] | null)?.join(", ") || selectedAccount.currency],
               ["Created", formatDateTime(selectedAccount.created_at)],
               ["Last Login", selectedAccount.last_login_at ? formatDateTime(selectedAccount.last_login_at) : "Never"],
             ].map(([l, v]) => (
               <div key={l} className="flex justify-between py-1.5" style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
-                <span className="text-white/40 text-xs flex-shrink-0">{l}</span>
-                <span className="text-white text-xs font-medium text-right break-all max-w-[60%]">{v}</span>
+                <span className="text-white/40 text-xs flex-shrink-0 w-32">{l}</span>
+                <span className="text-white text-xs font-medium text-right break-all">{v}</span>
               </div>
             ))}
           </div>
-          <div className="navy-card p-4">
-            <div className="text-white/50 text-xs font-semibold uppercase tracking-wide mb-3">CEO Account Controls</div>
-            <div className="grid grid-cols-3 gap-2 mb-3">
-              <button onClick={() => handleToggleStatus("banking_accounts", selectedAccount.id, selectedAccount.account_name, "is_frozen", selectedAccount.is_frozen || false)}
-                className="py-2.5 rounded-2xl text-xs font-medium"
-                style={{ background: selectedAccount.is_frozen ? "rgba(59,130,246,0.2)" : "rgba(255,255,255,0.07)", color: selectedAccount.is_frozen ? "#60a5fa" : "rgba(255,255,255,0.6)" }}>
-                {selectedAccount.is_frozen ? <><Unlock size={11} className="inline mr-1" />Unfreeze</> : <><Snowflake size={11} className="inline mr-1" />Freeze</>}
+
+          {/* Drill Tabs */}
+          <div className="flex gap-2">
+            {(["info", "transactions", "notifications"] as AcctDrillTab[]).map(t => (
+              <button key={t}
+                onClick={() => {
+                  setAcctDrillTab(t);
+                  if (t === "notifications") fetchAccountNotifications(selectedAccount.id);
+                }}
+                className="flex-1 py-2.5 rounded-2xl text-xs font-semibold"
+                style={acctDrillTab === t ? { background: "hsl(43,85%,55%)", color: "#111" } : { background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.5)" }}
+              >
+                {t === "notifications" ? "User Notifs" : t.charAt(0).toUpperCase() + t.slice(1)}
               </button>
-              <button onClick={() => handleToggleStatus("banking_accounts", selectedAccount.id, selectedAccount.account_name, "is_closed", selectedAccount.is_closed || false)}
-                className="py-2.5 rounded-2xl text-xs font-medium"
-                style={{ background: selectedAccount.is_closed ? "rgba(239,68,68,0.2)" : "rgba(255,255,255,0.07)", color: selectedAccount.is_closed ? "#f87171" : "rgba(255,255,255,0.6)" }}>
-                {selectedAccount.is_closed ? <><Unlock size={11} className="inline mr-1" />Open</> : <><XCircle size={11} className="inline mr-1" />Close</>}
-              </button>
-              <button onClick={() => handleToggleStatus("banking_accounts", selectedAccount.id, selectedAccount.account_name, "is_inactive", selectedAccount.is_inactive || false)}
-                className="py-2.5 rounded-2xl text-xs font-medium"
-                style={{ background: selectedAccount.is_inactive ? "rgba(251,146,60,0.2)" : "rgba(255,255,255,0.07)", color: selectedAccount.is_inactive ? "#fb923c" : "rgba(255,255,255,0.6)" }}>
-                {selectedAccount.is_inactive ? <><Power size={11} className="inline mr-1" />Activate</> : <><Power size={11} className="inline mr-1" />Inactive</>}
-              </button>
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <button onClick={() => setTimerTarget({ table: "banking_accounts", id: selectedAccount.id, name: selectedAccount.account_name, statusField: "is_frozen" })}
-                className="py-2.5 rounded-2xl text-xs flex items-center justify-center gap-1"
-                style={{ background: "rgba(255,255,255,0.05)", color: "rgba(255,255,255,0.5)", border: "1px solid rgba(255,255,255,0.08)" }}>
-                <Timer size={11} /> Set Timer
-              </button>
-              <button onClick={() => handleDeleteAccount(selectedAccount)}
-                className="py-2.5 rounded-2xl text-xs flex items-center justify-center gap-1"
-                style={{ background: "rgba(239,68,68,0.1)", color: "#f87171", border: "1px solid rgba(239,68,68,0.2)" }}>
-                <Trash2 size={11} /> Delete
-              </button>
-            </div>
+            ))}
           </div>
-          <div>
-            <h3 className="text-white font-bold mb-2">Transactions ({acctTxs.length})</h3>
-            {acctTxs.length === 0 ? <div className="text-white/25 text-sm text-center py-6">No transactions</div> : (
-              <div className="space-y-2">
-                {acctTxs.map(tx => {
-                  const isIn = tx.type === "deposit" || tx.type === "credit";
-                  return (
-                    <div key={tx.id} className="flex items-center gap-3 p-3 rounded-2xl" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}>
-                      <div className="flex-1 min-w-0">
-                        <div className="text-white text-xs font-medium">{tx.recipient_name || (isIn ? "Deposit" : "Transfer")}</div>
-                        <div className="text-white/30 text-xs">{formatDateTime(tx.custom_timestamp)}</div>
-                      </div>
-                      <span className="font-bold text-xs" style={{ color: isIn ? "#22c55e" : "#ef4444" }}>
-                        {isIn ? "+" : "-"}{formatCurrency(tx.amount, selectedAccount.currency)}
-                      </span>
-                      <button onClick={() => setSelectedTx(tx)} className="text-white/30 hover:text-white/60"><Eye size={13} /></button>
-                      <button onClick={() => setEditTx(tx)} className="text-white/30 hover:text-yellow-400"><Edit2 size={13} /></button>
-                    </div>
-                  );
-                })}
+
+          {/* INFO TAB */}
+          {acctDrillTab === "info" && (
+            <div className="navy-card p-4">
+              <div className="text-white/50 text-xs font-semibold uppercase tracking-wide mb-3">CEO Account Controls</div>
+              <div className="grid grid-cols-3 gap-2 mb-3">
+                <button onClick={() => handleToggleStatus("banking_accounts", selectedAccount.id, selectedAccount.account_name, "is_frozen", selectedAccount.is_frozen || false)}
+                  className="py-2.5 rounded-2xl text-xs font-medium"
+                  style={{ background: selectedAccount.is_frozen ? "rgba(59,130,246,0.2)" : "rgba(255,255,255,0.07)", color: selectedAccount.is_frozen ? "#60a5fa" : "rgba(255,255,255,0.6)" }}>
+                  {selectedAccount.is_frozen ? <><Unlock size={11} className="inline mr-1" />Unfreeze</> : <><Snowflake size={11} className="inline mr-1" />Freeze</>}
+                </button>
+                <button onClick={() => handleToggleStatus("banking_accounts", selectedAccount.id, selectedAccount.account_name, "is_closed", selectedAccount.is_closed || false)}
+                  className="py-2.5 rounded-2xl text-xs font-medium"
+                  style={{ background: selectedAccount.is_closed ? "rgba(239,68,68,0.2)" : "rgba(255,255,255,0.07)", color: selectedAccount.is_closed ? "#f87171" : "rgba(255,255,255,0.6)" }}>
+                  {selectedAccount.is_closed ? <><Unlock size={11} className="inline mr-1" />Open</> : <><XCircle size={11} className="inline mr-1" />Close</>}
+                </button>
+                <button onClick={() => handleToggleStatus("banking_accounts", selectedAccount.id, selectedAccount.account_name, "is_inactive", selectedAccount.is_inactive || false)}
+                  className="py-2.5 rounded-2xl text-xs font-medium"
+                  style={{ background: selectedAccount.is_inactive ? "rgba(251,146,60,0.2)" : "rgba(255,255,255,0.07)", color: selectedAccount.is_inactive ? "#fb923c" : "rgba(255,255,255,0.6)" }}>
+                  {selectedAccount.is_inactive ? <><Power size={11} className="inline mr-1" />Activate</> : <><Power size={11} className="inline mr-1" />Inactive</>}
+                </button>
               </div>
-            )}
-          </div>
+              <div className="grid grid-cols-2 gap-2">
+                <button onClick={() => setTimerTarget({ table: "banking_accounts", id: selectedAccount.id, name: selectedAccount.account_name, statusField: "is_frozen" })}
+                  className="py-2.5 rounded-2xl text-xs flex items-center justify-center gap-1"
+                  style={{ background: "rgba(255,255,255,0.05)", color: "rgba(255,255,255,0.5)", border: "1px solid rgba(255,255,255,0.08)" }}>
+                  <Timer size={11} /> Set Timer
+                </button>
+                <button onClick={() => handleDeleteAccount(selectedAccount)}
+                  className="py-2.5 rounded-2xl text-xs flex items-center justify-center gap-1"
+                  style={{ background: "rgba(239,68,68,0.1)", color: "#f87171", border: "1px solid rgba(239,68,68,0.2)" }}>
+                  <Trash2 size={11} /> Delete Account
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* TRANSACTIONS TAB */}
+          {acctDrillTab === "transactions" && (
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-white font-bold">Transactions ({acctTxs.length})</h3>
+                <div className="text-white/30 text-xs">Delete removes linked notification + adjusts balance</div>
+              </div>
+              {acctTxs.length === 0 ? (
+                <div className="text-white/25 text-sm text-center py-6">No transactions</div>
+              ) : (
+                <div className="space-y-2">
+                  {acctTxs.map(tx => {
+                    const isIn = tx.type === "deposit" || tx.type === "credit";
+                    return (
+                      <div key={tx.id} className="flex items-center gap-3 p-3 rounded-2xl" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-white text-xs font-medium">{tx.recipient_name || (isIn ? "Deposit" : "Transfer")}</div>
+                          <div className="text-white/30 text-xs">{formatDateTime(tx.custom_timestamp)}</div>
+                        </div>
+                        <span className="font-bold text-xs flex-shrink-0" style={{ color: isIn ? "#22c55e" : "#ef4444" }}>
+                          {isIn ? "+" : "-"}{formatCurrency(tx.amount, selectedAccount.currency)}
+                        </span>
+                        <button onClick={() => setSelectedTx(tx)} className="text-white/30 hover:text-white/60 flex-shrink-0"><Eye size={13} /></button>
+                        <button onClick={() => setEditTx(tx)} className="text-white/30 hover:text-yellow-400 flex-shrink-0"><Edit2 size={13} /></button>
+                        <button onClick={() => handleDeleteTransactionWithSync(tx, selectedAccount.id)} className="text-white/20 hover:text-red-400 flex-shrink-0"><Trash2 size={12} /></button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* USER NOTIFICATIONS TAB */}
+          {acctDrillTab === "notifications" && (
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <div className="text-white font-bold">User Notifications ({acctNotifications.length})</div>
+                <button onClick={() => fetchAccountNotifications(selectedAccount.id)} className="text-white/40 hover:text-white/70 text-xs">Refresh</button>
+              </div>
+              <div className="p-3 rounded-2xl mb-3 text-xs" style={{ background: "rgba(200,155,50,0.06)", border: "1px solid rgba(200,155,50,0.15)" }}>
+                <div className="text-yellow-400/80 font-semibold mb-0.5">Two-Way Sync Active</div>
+                <div className="text-white/40">Deleting a notification here also deletes its linked transaction and updates the account balance in real-time.</div>
+              </div>
+              {loadingAcctNotifs ? (
+                <div className="flex justify-center py-6"><div className="w-6 h-6 border-2 border-yellow-500/30 border-t-yellow-500 rounded-full animate-spin" /></div>
+              ) : acctNotifications.length === 0 ? (
+                <div className="text-center py-8 text-white/25 text-sm">No notifications for this account</div>
+              ) : (
+                <div className="space-y-2">
+                  {acctNotifications.map(notif => (
+                    <div key={notif.id} className="p-3 rounded-2xl" style={{
+                      background: notif.is_read ? "rgba(255,255,255,0.03)" : "rgba(200,155,50,0.05)",
+                      border: `1px solid ${notif.is_read ? "rgba(255,255,255,0.06)" : "rgba(200,155,50,0.2)"}`
+                    }}>
+                      <div className="flex items-start gap-2">
+                        <div className="flex-1 min-w-0">
+                          <div className="text-white font-semibold text-xs">{notif.title}</div>
+                          <div className="text-white/40 text-xs mt-0.5 leading-relaxed">{notif.body?.slice(0, 120)}{notif.body && notif.body.length > 120 ? "..." : ""}</div>
+                          <div className="flex flex-wrap gap-2 mt-1">
+                            <span className="text-white/25 text-xs">{formatDateTime(notif.created_at)}</span>
+                            {notif.related_message_id && <span className="text-yellow-400/50 text-xs">· linked tx</span>}
+                            <span className={`text-xs font-medium ${notif.is_read ? "text-white/20" : "text-yellow-400/70"}`}>{notif.is_read ? "Read" : "Unread"}</span>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => handleDeleteNotificationWithSync(notif, selectedAccount.id)}
+                          className="flex-shrink-0 flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-medium"
+                          style={{ background: "rgba(239,68,68,0.12)", color: "#f87171", border: "1px solid rgba(239,68,68,0.2)" }}
+                        >
+                          <Trash2 size={11} /> Del
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
+
         {selectedTx && <TransactionReceiptModal tx={{ ...selectedTx, account_name: selectedAccount.account_name, currency: selectedAccount.currency }} onClose={() => setSelectedTx(null)} />}
         {editTx && <EditTransactionModal tx={editTx} onClose={() => setEditTx(null)} onSuccess={fetchAll} />}
         {editTarget && <CASEditAccountModal target={editTarget} onClose={() => setEditTarget(null)} onSuccess={() => { fetchAll(); setEditTarget(null); supabase.from("banking_accounts").select("*").eq("id", selectedAccount.id).single().then(({ data }) => { if (data) setSelectedAccount(data); }); }} />}
@@ -361,6 +511,7 @@ export default function CASDashboard() {
     );
   }
 
+  // ---- AP DRILL VIEW ----
   if (drillView === "ap" && selectedAP) {
     const apSubAdmins = subAdmins.filter(s => s.created_by_ap === selectedAP.id);
     return (
@@ -386,28 +537,13 @@ export default function CASDashboard() {
           <div className="navy-card p-4">
             <div className="text-white/50 text-xs font-semibold uppercase tracking-wide mb-3">CEO Controls</div>
             <div className="grid grid-cols-3 gap-2 mb-2">
-              <button onClick={() => handleToggleStatus("administration_plus", selectedAP.id, selectedAP.name, "is_frozen", selectedAP.is_frozen || false)}
-                className="py-2 rounded-xl text-xs" style={{ background: selectedAP.is_frozen ? "rgba(59,130,246,0.2)" : "rgba(255,255,255,0.07)", color: selectedAP.is_frozen ? "#60a5fa" : "rgba(255,255,255,0.5)" }}>
-                {selectedAP.is_frozen ? "Unfreeze" : "Freeze"}
-              </button>
-              <button onClick={() => handleToggleStatus("administration_plus", selectedAP.id, selectedAP.name, "is_closed", selectedAP.is_closed || false)}
-                className="py-2 rounded-xl text-xs" style={{ background: selectedAP.is_closed ? "rgba(239,68,68,0.2)" : "rgba(255,255,255,0.07)", color: selectedAP.is_closed ? "#f87171" : "rgba(255,255,255,0.5)" }}>
-                {selectedAP.is_closed ? "Open" : "Close"}
-              </button>
-              <button onClick={() => handleToggleStatus("administration_plus", selectedAP.id, selectedAP.name, "is_inactive", selectedAP.is_inactive || false)}
-                className="py-2 rounded-xl text-xs" style={{ background: selectedAP.is_inactive ? "rgba(251,146,60,0.2)" : "rgba(255,255,255,0.07)", color: selectedAP.is_inactive ? "#fb923c" : "rgba(255,255,255,0.5)" }}>
-                {selectedAP.is_inactive ? "Activate" : "Inactive"}
-              </button>
+              <button onClick={() => handleToggleStatus("administration_plus", selectedAP.id, selectedAP.name, "is_frozen", selectedAP.is_frozen || false)} className="py-2 rounded-xl text-xs" style={{ background: selectedAP.is_frozen ? "rgba(59,130,246,0.2)" : "rgba(255,255,255,0.07)", color: selectedAP.is_frozen ? "#60a5fa" : "rgba(255,255,255,0.5)" }}>{selectedAP.is_frozen ? "Unfreeze" : "Freeze"}</button>
+              <button onClick={() => handleToggleStatus("administration_plus", selectedAP.id, selectedAP.name, "is_closed", selectedAP.is_closed || false)} className="py-2 rounded-xl text-xs" style={{ background: selectedAP.is_closed ? "rgba(239,68,68,0.2)" : "rgba(255,255,255,0.07)", color: selectedAP.is_closed ? "#f87171" : "rgba(255,255,255,0.5)" }}>{selectedAP.is_closed ? "Open" : "Close"}</button>
+              <button onClick={() => handleToggleStatus("administration_plus", selectedAP.id, selectedAP.name, "is_inactive", selectedAP.is_inactive || false)} className="py-2 rounded-xl text-xs" style={{ background: selectedAP.is_inactive ? "rgba(251,146,60,0.2)" : "rgba(255,255,255,0.07)", color: selectedAP.is_inactive ? "#fb923c" : "rgba(255,255,255,0.5)" }}>{selectedAP.is_inactive ? "Activate" : "Inactive"}</button>
             </div>
             <div className="grid grid-cols-2 gap-2">
-              <button onClick={() => setTimerTarget({ table: "administration_plus", id: selectedAP.id, name: selectedAP.name, statusField: "is_frozen" })}
-                className="py-2 rounded-xl text-xs flex items-center justify-center gap-1" style={{ background: "rgba(255,255,255,0.05)", color: "rgba(255,255,255,0.5)" }}>
-                <Timer size={11} /> Set Timer
-              </button>
-              <button onClick={() => handleDeleteAP(selectedAP)}
-                className="py-2 rounded-xl text-xs flex items-center justify-center gap-1" style={{ background: "rgba(239,68,68,0.1)", color: "#f87171" }}>
-                <Trash2 size={11} /> Delete AP
-              </button>
+              <button onClick={() => setTimerTarget({ table: "administration_plus", id: selectedAP.id, name: selectedAP.name, statusField: "is_frozen" })} className="py-2 rounded-xl text-xs flex items-center justify-center gap-1" style={{ background: "rgba(255,255,255,0.05)", color: "rgba(255,255,255,0.5)" }}><Timer size={11} /> Set Timer</button>
+              <button onClick={() => handleDeleteAP(selectedAP)} className="py-2 rounded-xl text-xs flex items-center justify-center gap-1" style={{ background: "rgba(239,68,68,0.1)", color: "#f87171" }}><Trash2 size={11} /> Delete AP</button>
             </div>
           </div>
           <h3 className="text-white font-bold">Admin Portals ({apSubAdmins.length})</h3>
@@ -415,8 +551,7 @@ export default function CASDashboard() {
             apSubAdmins.map(sub => {
               const subAccounts = accounts.filter(a => a.created_by_sub_admin === sub.id);
               return (
-                <button key={sub.id} onClick={() => { setSelectedADP(sub); setDrillView("adp"); }}
-                  className="w-full flex items-center gap-3 p-4 rounded-2xl text-left" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
+                <button key={sub.id} onClick={() => { setSelectedADP(sub); setDrillView("adp"); }} className="w-full flex items-center gap-3 p-4 rounded-2xl text-left" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
                   {sub.profile_picture ? <img src={sub.profile_picture} alt="" className="w-10 h-10 rounded-full object-cover" /> : <div className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold" style={{ background: "hsl(220,50%,22%)", color: "hsl(43,85%,60%)" }}>{getInitials(sub.name)}</div>}
                   <div className="flex-1"><div className="text-white font-semibold text-sm">{sub.name}</div><div className="text-white/40 text-xs">{subAccounts.length} / {sub.max_individual} accounts</div></div>
                   <ChevronRight size={16} className="text-white/30" />
@@ -431,6 +566,7 @@ export default function CASDashboard() {
     );
   }
 
+  // ---- ADP DRILL VIEW ----
   if (drillView === "adp" && selectedADP) {
     const adpAccounts = accounts.filter(a => a.created_by_sub_admin === selectedADP.id);
     return (
@@ -444,34 +580,18 @@ export default function CASDashboard() {
           <div className="navy-card p-4">
             <div className="text-white/50 text-xs font-semibold uppercase tracking-wide mb-3">CEO Controls</div>
             <div className="grid grid-cols-3 gap-2 mb-2">
-              <button onClick={() => handleToggleStatus("sub_admin_portals", selectedADP.id, selectedADP.name, "is_frozen", selectedADP.is_frozen || false)}
-                className="py-2 rounded-xl text-xs" style={{ background: selectedADP.is_frozen ? "rgba(59,130,246,0.2)" : "rgba(255,255,255,0.07)", color: selectedADP.is_frozen ? "#60a5fa" : "rgba(255,255,255,0.5)" }}>
-                {selectedADP.is_frozen ? "Unfreeze" : "Freeze"}
-              </button>
-              <button onClick={() => handleToggleStatus("sub_admin_portals", selectedADP.id, selectedADP.name, "is_closed", selectedADP.is_closed || false)}
-                className="py-2 rounded-xl text-xs" style={{ background: selectedADP.is_closed ? "rgba(239,68,68,0.2)" : "rgba(255,255,255,0.07)", color: selectedADP.is_closed ? "#f87171" : "rgba(255,255,255,0.5)" }}>
-                {selectedADP.is_closed ? "Open" : "Close"}
-              </button>
-              <button onClick={() => handleToggleStatus("sub_admin_portals", selectedADP.id, selectedADP.name, "is_inactive", selectedADP.is_inactive || false)}
-                className="py-2 rounded-xl text-xs" style={{ background: selectedADP.is_inactive ? "rgba(251,146,60,0.2)" : "rgba(255,255,255,0.07)", color: selectedADP.is_inactive ? "#fb923c" : "rgba(255,255,255,0.5)" }}>
-                {selectedADP.is_inactive ? "Activate" : "Inactive"}
-              </button>
+              <button onClick={() => handleToggleStatus("sub_admin_portals", selectedADP.id, selectedADP.name, "is_frozen", selectedADP.is_frozen || false)} className="py-2 rounded-xl text-xs" style={{ background: selectedADP.is_frozen ? "rgba(59,130,246,0.2)" : "rgba(255,255,255,0.07)", color: selectedADP.is_frozen ? "#60a5fa" : "rgba(255,255,255,0.5)" }}>{selectedADP.is_frozen ? "Unfreeze" : "Freeze"}</button>
+              <button onClick={() => handleToggleStatus("sub_admin_portals", selectedADP.id, selectedADP.name, "is_closed", selectedADP.is_closed || false)} className="py-2 rounded-xl text-xs" style={{ background: selectedADP.is_closed ? "rgba(239,68,68,0.2)" : "rgba(255,255,255,0.07)", color: selectedADP.is_closed ? "#f87171" : "rgba(255,255,255,0.5)" }}>{selectedADP.is_closed ? "Open" : "Close"}</button>
+              <button onClick={() => handleToggleStatus("sub_admin_portals", selectedADP.id, selectedADP.name, "is_inactive", selectedADP.is_inactive || false)} className="py-2 rounded-xl text-xs" style={{ background: selectedADP.is_inactive ? "rgba(251,146,60,0.2)" : "rgba(255,255,255,0.07)", color: selectedADP.is_inactive ? "#fb923c" : "rgba(255,255,255,0.5)" }}>{selectedADP.is_inactive ? "Activate" : "Inactive"}</button>
             </div>
             <div className="grid grid-cols-2 gap-2">
-              <button onClick={() => setTimerTarget({ table: "sub_admin_portals", id: selectedADP.id, name: selectedADP.name, statusField: "is_frozen" })}
-                className="py-2 rounded-xl text-xs flex items-center justify-center gap-1" style={{ background: "rgba(255,255,255,0.05)", color: "rgba(255,255,255,0.5)" }}>
-                <Timer size={11} /> Set Timer
-              </button>
-              <button onClick={() => handleDeleteADP(selectedADP)}
-                className="py-2 rounded-xl text-xs flex items-center justify-center gap-1" style={{ background: "rgba(239,68,68,0.1)", color: "#f87171" }}>
-                <Trash2 size={11} /> Delete
-              </button>
+              <button onClick={() => setTimerTarget({ table: "sub_admin_portals", id: selectedADP.id, name: selectedADP.name, statusField: "is_frozen" })} className="py-2 rounded-xl text-xs flex items-center justify-center gap-1" style={{ background: "rgba(255,255,255,0.05)", color: "rgba(255,255,255,0.5)" }}><Timer size={11} /> Set Timer</button>
+              <button onClick={() => handleDeleteADP(selectedADP)} className="py-2 rounded-xl text-xs flex items-center justify-center gap-1" style={{ background: "rgba(239,68,68,0.1)", color: "#f87171" }}><Trash2 size={11} /> Delete</button>
             </div>
           </div>
           <h3 className="text-white font-bold">Individual Accounts ({adpAccounts.length})</h3>
           {adpAccounts.map(acc => (
-            <button key={acc.id} onClick={() => { setSelectedAccount(acc); setDrillView("account"); }}
-              className="w-full flex items-center gap-3 p-4 rounded-2xl text-left" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}>
+            <button key={acc.id} onClick={() => { setSelectedAccount(acc); setDrillView("account"); }} className="w-full flex items-center gap-3 p-4 rounded-2xl text-left" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}>
               {acc.profile_picture ? <img src={acc.profile_picture} alt="" className="w-10 h-10 rounded-full object-cover" style={{ border: "2px solid hsl(43,85%,55%)" }} /> : <div className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold" style={{ background: "hsl(220,50%,22%)", color: "hsl(43,85%,60%)" }}>{getInitials(acc.account_name)}</div>}
               <div className="flex-1 min-w-0"><div className="text-white text-sm font-medium">{acc.account_name}</div><div className="text-white/30 text-xs">{acc.account_number}</div></div>
               <div className="text-right">
@@ -599,37 +719,22 @@ export default function CASDashboard() {
       <div className="px-4 pt-4 space-y-4 pb-4">
         {showConverter && <CurrencyConverterWidget />}
 
-        {/* Total Balance Card */}
         <div className="rounded-3xl p-5 relative overflow-hidden" style={{ background: "linear-gradient(135deg, hsl(220,60%,18%) 0%, hsl(220,70%,12%) 100%)", border: "1px solid rgba(255,255,255,0.1)" }}>
           <div className="absolute top-0 right-0 w-32 h-32 rounded-full opacity-10" style={{ background: "hsl(43,85%,60%)", transform: "translate(30%,-30%)" }} />
           <div className="flex items-start justify-between mb-3">
             <div>
               <div className="text-white/40 text-xs mb-1">Total Balance · All Platform</div>
-              <div className="text-white font-bold" style={{ fontSize: "clamp(1.6rem, 5vw, 2.4rem)" }}>
-                {showBalance ? formatCurrency(totalBalance, "USD") : "••••••••"}
-              </div>
+              <div className="text-white font-bold" style={{ fontSize: "clamp(1.6rem, 5vw, 2.4rem)" }}>{showBalance ? formatCurrency(totalBalance, "USD") : "••••••••"}</div>
             </div>
-            <button onClick={() => setShowBalance(!showBalance)} className="text-white/40 hover:text-white">
-              {showBalance ? <Eye size={18} /> : <EyeOff size={18} />}
-            </button>
+            <button onClick={() => setShowBalance(!showBalance)} className="text-white/40 hover:text-white">{showBalance ? <Eye size={18} /> : <EyeOff size={18} />}</button>
           </div>
           <div className="grid grid-cols-3 gap-2">
-            <div className="rounded-xl p-2 text-center" style={{ background: "rgba(255,255,255,0.06)" }}>
-              <div style={{ color: "hsl(43,85%,60%)" }} className="font-bold text-base">{aps.length}</div>
-              <div className="text-white/30 text-xs">AP</div>
-            </div>
-            <div className="rounded-xl p-2 text-center" style={{ background: "rgba(255,255,255,0.06)" }}>
-              <div className="text-blue-400 font-bold text-base">{subAdmins.length}</div>
-              <div className="text-white/30 text-xs">ADP</div>
-            </div>
-            <div className="rounded-xl p-2 text-center" style={{ background: "rgba(255,255,255,0.06)" }}>
-              <div className="text-green-400 font-bold text-base">{accounts.length}</div>
-              <div className="text-white/30 text-xs">IDA</div>
-            </div>
+            <div className="rounded-xl p-2 text-center" style={{ background: "rgba(255,255,255,0.06)" }}><div style={{ color: "hsl(43,85%,60%)" }} className="font-bold text-base">{aps.length}</div><div className="text-white/30 text-xs">AP</div></div>
+            <div className="rounded-xl p-2 text-center" style={{ background: "rgba(255,255,255,0.06)" }}><div className="text-blue-400 font-bold text-base">{subAdmins.length}</div><div className="text-white/30 text-xs">ADP</div></div>
+            <div className="rounded-xl p-2 text-center" style={{ background: "rgba(255,255,255,0.06)" }}><div className="text-green-400 font-bold text-base">{accounts.length}</div><div className="text-white/30 text-xs">IDA</div></div>
           </div>
         </div>
 
-        {/* Total In / Out */}
         <div className="grid grid-cols-2 gap-3">
           <div className="rounded-2xl p-4" style={{ background: "rgba(34,197,94,0.08)", border: "1px solid rgba(34,197,94,0.2)" }}>
             <div className="flex items-center gap-1.5 mb-1"><TrendingUp size={13} color="#22c55e" /><span className="text-green-400 text-xs">Total In</span></div>
@@ -643,7 +748,6 @@ export default function CASDashboard() {
           </div>
         </div>
 
-        {/* Platform Aggregate Counters */}
         <div className="grid grid-cols-3 gap-2">
           <div className="rounded-2xl p-3 text-center" style={{ background: "rgba(200,155,50,0.07)", border: "1px solid rgba(200,155,50,0.2)" }}>
             <div style={{ color: "hsl(43,85%,60%)" }} className="font-bold text-sm">${(savingsTotal / 1000).toFixed(1)}K</div>
@@ -659,17 +763,11 @@ export default function CASDashboard() {
           </div>
         </div>
 
-        {/* Quick Actions */}
         <div className="grid grid-cols-2 gap-3">
-          <button onClick={() => setShowDeposit(true)} className="gold-btn py-3 text-xs font-semibold flex items-center justify-center gap-1.5">
-            <Plus size={14} /> CEO Deposit
-          </button>
-          <button onClick={() => setShowScheduled(true)} className="py-3 rounded-2xl text-xs font-semibold flex items-center justify-center gap-1.5" style={{ background: "rgba(200,155,50,0.1)", color: "hsl(43,85%,60%)", border: "1px solid rgba(200,155,50,0.2)" }}>
-            <Calendar size={14} /> Schedule Tx
-          </button>
+          <button onClick={() => setShowDeposit(true)} className="gold-btn py-3 text-xs font-semibold flex items-center justify-center gap-1.5"><Plus size={14} /> CEO Deposit</button>
+          <button onClick={() => setShowScheduled(true)} className="py-3 rounded-2xl text-xs font-semibold flex items-center justify-center gap-1.5" style={{ background: "rgba(200,155,50,0.1)", color: "hsl(43,85%,60%)", border: "1px solid rgba(200,155,50,0.2)" }}><Calendar size={14} /> Schedule Tx</button>
         </div>
 
-        {/* Platform Controls & Audit Log */}
         <div className="grid grid-cols-2 gap-3">
           <button onClick={() => setShowPlatformControls(true)} className="flex items-center gap-2 px-4 py-3 rounded-2xl text-left" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)" }}>
             <Activity size={15} style={{ color: "hsl(43,85%,60%)" }} />
@@ -681,15 +779,9 @@ export default function CASDashboard() {
           </button>
         </div>
 
-        {/* Statement Download */}
         <button onClick={() => setShowStatementDownload(!showStatementDownload)} className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl text-left" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)" }}>
-          <div className="w-10 h-10 rounded-2xl flex items-center justify-center flex-shrink-0" style={{ background: "rgba(200,155,50,0.12)" }}>
-            <Download size={18} style={{ color: "hsl(43,85%,60%)" }} />
-          </div>
-          <div>
-            <div className="text-white font-semibold text-sm">Download User Statement</div>
-            <div className="text-white/40 text-xs">BankUnited official statement for any account</div>
-          </div>
+          <div className="w-10 h-10 rounded-2xl flex items-center justify-center flex-shrink-0" style={{ background: "rgba(200,155,50,0.12)" }}><Download size={18} style={{ color: "hsl(43,85%,60%)" }} /></div>
+          <div><div className="text-white font-semibold text-sm">Download User Statement</div><div className="text-white/40 text-xs">BankUnited official statement for any account</div></div>
         </button>
         {showStatementDownload && (
           <div className="rounded-2xl p-4 space-y-3" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
@@ -708,37 +800,23 @@ export default function CASDashboard() {
           </div>
         )}
 
-        {/* Currency Settings */}
         <button onClick={() => setShowCurrencySettings(true)} className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl text-left" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)" }}>
-          <div className="w-10 h-10 rounded-2xl flex items-center justify-center flex-shrink-0" style={{ background: "rgba(200,155,50,0.12)" }}>
-            <span style={{ fontSize: 18 }}>🌐</span>
-          </div>
-          <div>
-            <div className="text-white font-semibold text-sm">IDA Currency Settings</div>
-            <div className="text-white/40 text-xs">Manage multi-currency per account · {ALL_CURRENCIES.length} currencies</div>
-          </div>
+          <div className="w-10 h-10 rounded-2xl flex items-center justify-center flex-shrink-0" style={{ background: "rgba(200,155,50,0.12)" }}><span style={{ fontSize: 18 }}>🌐</span></div>
+          <div><div className="text-white font-semibold text-sm">IDA Currency Settings</div><div className="text-white/40 text-xs">Manage multi-currency per account · {ALL_CURRENCIES.length} currencies</div></div>
         </button>
 
-        {/* Virtual Card Applications */}
         <button onClick={() => setShowCardReview(true)} className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl text-left transition-colors" style={{ background: "rgba(200,155,50,0.06)", border: "1px solid rgba(200,155,50,0.2)" }}>
-          <div className="w-10 h-10 rounded-2xl flex items-center justify-center flex-shrink-0" style={{ background: "rgba(200,155,50,0.15)" }}>
-            <CreditCard size={18} style={{ color: "hsl(43,85%,60%)" }} />
-          </div>
-          <div className="flex-1">
-            <div className="text-white font-semibold text-sm">Virtual Card Applications</div>
-            <div className="text-white/40 text-xs mt-0.5">Review, approve or decline user applications</div>
-          </div>
+          <div className="w-10 h-10 rounded-2xl flex items-center justify-center flex-shrink-0" style={{ background: "rgba(200,155,50,0.15)" }}><CreditCard size={18} style={{ color: "hsl(43,85%,60%)" }} /></div>
+          <div className="flex-1"><div className="text-white font-semibold text-sm">Virtual Card Applications</div><div className="text-white/40 text-xs mt-0.5">Review, approve or decline user applications</div></div>
           {pendingCardApps > 0 && <span className="bg-yellow-500 text-gray-900 text-xs rounded-full px-2 py-0.5 font-bold">{pendingCardApps}</span>}
         </button>
 
-        {/* Create shortcuts */}
         <div className="grid grid-cols-3 gap-2">
           <button onClick={() => setShowCreateAP(true)} className="py-2.5 rounded-2xl text-xs font-medium" style={{ background: "rgba(255,255,255,0.07)", color: "rgba(255,255,255,0.6)" }}>+ AP</button>
           <button onClick={() => setShowCreateADP(true)} className="py-2.5 rounded-2xl text-xs font-medium" style={{ background: "rgba(255,255,255,0.07)", color: "rgba(255,255,255,0.6)" }}>+ ADP</button>
           <button onClick={() => setShowCreateIndividual(true)} className="py-2.5 rounded-2xl text-xs font-medium" style={{ background: "rgba(255,255,255,0.07)", color: "rgba(255,255,255,0.6)" }}>+ IDA</button>
         </div>
 
-        {/* Portal shortcuts */}
         <div>
           <div className="text-white/40 text-xs font-semibold mb-2">Navigate To</div>
           <div className="grid grid-cols-3 gap-2">
@@ -748,7 +826,6 @@ export default function CASDashboard() {
           </div>
         </div>
 
-        {/* Activity Log */}
         <div>
           <div className="flex items-center gap-2 mb-3"><Activity size={15} style={{ color: "hsl(43,85%,60%)" }} /><span className="text-white font-bold text-sm">Recent Login Activity</span></div>
           {loginActivity.slice(0, 5).map(log => (
@@ -760,7 +837,6 @@ export default function CASDashboard() {
           {loginActivity.length === 0 && <div className="text-white/25 text-xs text-center py-4">No activity yet</div>}
         </div>
 
-        {/* Recent Transactions */}
         <div>
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-white font-bold text-sm">Recent Transactions</h3>
@@ -789,7 +865,6 @@ export default function CASDashboard() {
         </div>
       </div>
 
-      {/* Modals */}
       {selectedTx && <TransactionReceiptModal tx={{ ...selectedTx, account_name: accounts.find(a => a.id === selectedTx.account_id)?.account_name, currency: accounts.find(a => a.id === selectedTx.account_id)?.currency }} onClose={() => setSelectedTx(null)} />}
       {editTx && <EditTransactionModal tx={editTx} onClose={() => setEditTx(null)} onSuccess={fetchAll} />}
       {showDeposit && <AdminDepositModal accounts={accounts} onClose={() => setShowDeposit(false)} onSuccess={fetchAll} />}

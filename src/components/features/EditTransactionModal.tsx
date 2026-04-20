@@ -36,8 +36,10 @@ export default function EditTransactionModal({ tx, onClose, onSuccess }: Props) 
 
   const handleSave = async () => {
     setLoading(true);
+    const newTimestamp = new Date(customDate).toISOString();
+
     const { error } = await supabase.from("banking_transactions").update({
-      custom_timestamp: new Date(customDate).toISOString(),
+      custom_timestamp: newTimestamp,
       description: description.trim() || null,
       recipient_name: recipientName.trim() || null,
       recipient_bank: recipientBank.trim() || null,
@@ -47,12 +49,53 @@ export default function EditTransactionModal({ tx, onClose, onSuccess }: Props) 
 
     if (error) {
       toast.error("Failed to update transaction.");
-    } else {
-      await logAudit("edit_transaction", tx.account_id, undefined, { tx_id: tx.transaction_id, new_date: customDate });
-      toast.success("Transaction updated.");
-      onSuccess();
-      onClose();
+      setLoading(false);
+      return;
     }
+
+    // PART 8 — Transaction Date Sync: update linked notification timestamp
+    // Find notifications linked to this transaction (by transaction_id or similar ref)
+    const { data: linkedNotifs } = await supabase
+      .from("banking_notifications")
+      .select("id")
+      .eq("account_id", tx.account_id)
+      .eq("related_message_id", tx.id);
+
+    // Also search by transaction_ref in banking_messages
+    if (linkedNotifs && linkedNotifs.length > 0) {
+      for (const notif of linkedNotifs) {
+        await supabase.from("banking_notifications")
+          .update({ created_at: newTimestamp })
+          .eq("id", notif.id);
+      }
+    }
+
+    // Search notifications body for transaction_id match and update timestamp
+    const { data: bodyNotifs } = await supabase
+      .from("banking_notifications")
+      .select("id, body")
+      .eq("account_id", tx.account_id)
+      .ilike("body", `%${tx.transaction_id}%`);
+
+    if (bodyNotifs && bodyNotifs.length > 0) {
+      for (const notif of bodyNotifs) {
+        await supabase.from("banking_notifications")
+          .update({ created_at: newTimestamp })
+          .eq("id", notif.id);
+      }
+    }
+
+    await logAudit("edit_transaction", tx.account_id, undefined, {
+      tx_id: tx.transaction_id,
+      old_date: tx.custom_timestamp,
+      new_date: newTimestamp,
+      old_amount: tx.amount,
+      new_amount: parseFloat(amount) || tx.amount,
+    }, "CEO", "cas");
+
+    toast.success("Transaction updated. Linked notifications synced.");
+    onSuccess();
+    onClose();
     setLoading(false);
   };
 
@@ -70,7 +113,7 @@ export default function EditTransactionModal({ tx, onClose, onSuccess }: Props) 
             <span className="text-white font-mono text-xs">{tx.transaction_id}</span>
           </div>
           <div>
-            <label className="text-white/60 text-xs mb-1.5 block">Date & Time (Year / Month / Day / Hour / Min)</label>
+            <label className="text-white/60 text-xs mb-1.5 block">Date & Time</label>
             <input type="datetime-local" className="dark-input" value={customDate} onChange={(e) => setCustomDate(e.target.value)} />
           </div>
           <div>
@@ -102,6 +145,10 @@ export default function EditTransactionModal({ tx, onClose, onSuccess }: Props) 
           <div>
             <label className="text-white/60 text-xs mb-1.5 block">Description</label>
             <input type="text" className="dark-input" placeholder="Transaction description" value={description} onChange={(e) => setDescription(e.target.value)} />
+          </div>
+          <div className="p-3 rounded-2xl text-xs" style={{ background: "rgba(200,155,50,0.06)", border: "1px solid rgba(200,155,50,0.15)" }}>
+            <div className="text-yellow-400/80 font-semibold mb-0.5">Date Sync</div>
+            <div className="text-white/40">Changing the date will also update the timestamp of linked notifications for this transaction.</div>
           </div>
           <button onClick={handleSave} disabled={loading} className="gold-btn w-full py-3.5 text-sm font-semibold flex items-center justify-center gap-2">
             {loading ? <div className="w-5 h-5 border-2 border-gray-900/30 border-t-gray-900 rounded-full animate-spin" /> : <><Save size={16} /> Save Changes</>}
