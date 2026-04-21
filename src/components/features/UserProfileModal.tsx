@@ -115,6 +115,31 @@ export default function UserProfileModal({ account, onClose }: Props) {
             </div>
           </div>
 
+          {/* Login Activity Section */}
+          <div className="mt-4 pt-4 border-t border-white/10">
+            <h3 className="text-white/60 text-xs font-semibold mb-3 uppercase tracking-wider">👤 Login Activity</h3>
+            <div className="space-y-3">
+              <div className="flex justify-between items-center">
+                <span className="text-white/40 text-xs">Last Login</span>
+                <span className="text-white text-xs">
+                  {account.last_login_at ? new Date(account.last_login_at).toLocaleString() : 'Never'}
+                </span>
+              </div>
+              <div className="flex justify-between items-start">
+                <span className="text-white/40 text-xs">Device</span>
+                <span className="text-white text-xs text-right max-w-[180px] truncate">
+                  {account.last_login_device || 'Unknown'}
+                </span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-white/40 text-xs">Account Created</span>
+                <span className="text-white text-xs">
+                  {new Date(account.created_at).toLocaleDateString()}
+                </span>
+              </div>
+            </div>
+          </div>
+
           {/* Sign Out Button */}
           <button
             onClick={() => {
