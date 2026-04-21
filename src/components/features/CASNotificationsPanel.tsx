@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
-import { ArrowLeft, Bell, Check, Reply, Paperclip, X, Send, ChevronRight } from "lucide-react";
-import { supabase, type BankingNotification, type Account } from "@/lib/supabase";
+import { ArrowLeft, Bell, Check, Reply, Paperclip, X, Send, ChevronRight, Trash2, Pencil } from "lucide-react";
+import { supabase, type BankingNotification, type Account, logAudit } from "@/lib/supabase";
 import { formatDateTime } from "@/lib/utils";
 import { usePolling } from "@/hooks/usePolling";
 import { toast } from "sonner";
+import EditNotificationModal from "./EditNotificationModal";
 
 interface Props {
   accounts: Account[];
@@ -17,6 +18,8 @@ export default function CASNotificationsPanel({ accounts, onClose }: Props) {
   const [sending, setSending] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [fileRef, setFileRef] = useState<HTMLInputElement | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [editingNotification, setEditingNotification] = useState<BankingNotification | null>(null);
 
   const fetchNotifs = async () => {
     const { data } = await supabase
@@ -42,6 +45,50 @@ export default function CASNotificationsPanel({ accounts, onClose }: Props) {
     }
     fetchNotifs();
     toast.success("All notifications marked as read.");
+  };
+
+  const handleDeleteNotification = async (notification: BankingNotification) => {
+    if (!confirm("Delete this notification permanently? The linked transaction will also be removed and the account balance updated.")) {
+      return;
+    }
+    setDeleting(true);
+
+    const txIdMatch = notification.body.match(/BKU-\d+/i) || notification.title.match(/BKU-\d+/i);
+    const extractedTxId = txIdMatch ? txIdMatch[0] : null;
+
+    if (extractedTxId) {
+      const { data: txData } = await supabase
+        .from("banking_transactions")
+        .select("amount, type, account_id")
+        .eq("transaction_id", extractedTxId)
+        .single();
+
+      if (txData) {
+        await supabase.from("banking_transactions").delete().eq("transaction_id", extractedTxId);
+
+        const { data: account } = await supabase.from("accounts").select("balance").eq("id", txData.account_id).single();
+        if (account) {
+          const newBalance = (txData.type === 'credit' || txData.type === 'deposit')
+            ? account.balance - txData.amount
+            : account.balance + txData.amount;
+
+          await supabase.from("accounts").update({ balance: newBalance }).eq("id", txData.account_id);
+        }
+
+        await logAudit("delete_transaction_via_notification", txData.account_id, undefined, {
+          tx_id: extractedTxId,
+          amount: txData.amount,
+          notification_id: notification.id
+        }, "CEO", "cas");
+      }
+    }
+
+    await supabase.from("banking_notifications").delete().eq("id", notification.id);
+
+    toast.success("Notification and linked transaction removed.");
+    setDeleting(false);
+    fetchNotifs();
+    if (selected?.id === notification.id) setSelected(null);
   };
 
   const handleSendReply = async () => {
@@ -132,6 +179,21 @@ export default function CASNotificationsPanel({ accounts, onClose }: Props) {
           <button onClick={() => { setSelected(null); setReplyText(""); }} className="text-white/40 hover:text-white"><ArrowLeft size={20} /></button>
           <Bell size={17} style={{ color: "hsl(43,85%,60%)" }} />
           <div className="text-white font-bold flex-1 truncate">{selected.title}</div>
+          <button
+            onClick={() => { setEditingNotification(selected); setSelected(null); }}
+            className="text-blue-400 hover:text-blue-300 p-2"
+            title="Edit notification timestamp"
+          >
+            <Pencil size={18} />
+          </button>
+          <button
+            onClick={() => handleDeleteNotification(selected)}
+            disabled={deleting}
+            className="text-red-400 hover:text-red-300 p-2"
+            title="Delete notification and linked transaction"
+          >
+            <Trash2 size={18} />
+          </button>
         </div>
 
         <div className="flex-1 overflow-y-auto p-5 space-y-4">
@@ -227,33 +289,58 @@ export default function CASNotificationsPanel({ accounts, onClose }: Props) {
             const linkedAccount = accounts.find(a => a.id === n.account_id || a.id === n.target);
             const badge = getCategoryBadge(n.title);
             return (
-              <button key={n.id} onClick={() => { setSelected(n); if (!n.is_read) markRead(n.id); }}
-                className="w-full text-left p-4 rounded-2xl transition-colors hover:bg-white/5"
-                style={{ background: n.is_read ? "rgba(255,255,255,0.03)" : "rgba(200,155,50,0.05)", border: `1px solid ${n.is_read ? "rgba(255,255,255,0.06)" : "rgba(200,155,50,0.2)"}` }}>
-                <div className="flex items-start gap-3">
-                  <div className="w-9 h-9 rounded-2xl flex items-center justify-center flex-shrink-0 mt-0.5"
-                    style={{ background: n.is_read ? "rgba(255,255,255,0.06)" : "rgba(200,155,50,0.15)" }}>
-                    <Bell size={15} style={{ color: n.is_read ? "rgba(255,255,255,0.4)" : "hsl(43,85%,60%)" }} />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-0.5">
-                      <span className="text-white text-sm font-semibold truncate">{n.title}</span>
-                      {!n.is_read && <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: "hsl(43,85%,60%)" }} />}
+              <div key={n.id} className="relative">
+                <button onClick={() => { setSelected(n); if (!n.is_read) markRead(n.id); }}
+                  className="w-full text-left p-4 rounded-2xl transition-colors hover:bg-white/5"
+                  style={{ background: n.is_read ? "rgba(255,255,255,0.03)" : "rgba(200,155,50,0.05)", border: `1px solid ${n.is_read ? "rgba(255,255,255,0.06)" : "rgba(200,155,50,0.2)"}` }}>
+                  <div className="flex items-start gap-3">
+                    <div className="w-9 h-9 rounded-2xl flex items-center justify-center flex-shrink-0 mt-0.5"
+                      style={{ background: n.is_read ? "rgba(255,255,255,0.06)" : "rgba(200,155,50,0.15)" }}>
+                      <Bell size={15} style={{ color: n.is_read ? "rgba(255,255,255,0.4)" : "hsl(43,85%,60%)" }} />
                     </div>
-                    <div className="text-white/50 text-xs leading-relaxed line-clamp-2">{n.body}</div>
-                    <div className="flex items-center gap-2 mt-1.5">
-                      <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: `${badge.color}18`, color: badge.color }}>{badge.label}</span>
-                      {linkedAccount && <span className="text-white/30 text-xs">{linkedAccount.account_name}</span>}
-                      <span className="text-white/20 text-xs ml-auto">{formatDateTime(n.created_at)}</span>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-0.5">
+                        <span className="text-white text-sm font-semibold truncate">{n.title}</span>
+                        {!n.is_read && <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: "hsl(43,85%,60%)" }} />}
+                      </div>
+                      <div className="text-white/50 text-xs leading-relaxed line-clamp-2">{n.body}</div>
+                      <div className="flex items-center gap-2 mt-1.5">
+                        <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: `${badge.color}18`, color: badge.color }}>{badge.label}</span>
+                        {linkedAccount && <span className="text-white/30 text-xs">{linkedAccount.account_name}</span>}
+                        <span className="text-white/20 text-xs ml-auto">{formatDateTime(n.created_at)}</span>
+                      </div>
                     </div>
+                    <ChevronRight size={14} className="text-white/20 flex-shrink-0 mt-1" />
                   </div>
-                  <ChevronRight size={14} className="text-white/20 flex-shrink-0 mt-1" />
-                </div>
-              </button>
+                </button>
+                <button
+                  onClick={(e) => { e.stopPropagation(); setEditingNotification(n); }}
+                  className="absolute top-3 right-12 z-10 p-1.5 rounded-lg text-blue-400 hover:text-blue-300 hover:bg-blue-400/10 transition-colors"
+                  title="Edit notification timestamp"
+                >
+                  <Pencil size={14} />
+                </button>
+                <button
+                  onClick={(e) => { e.stopPropagation(); handleDeleteNotification(n); }}
+                  disabled={deleting}
+                  className="absolute top-3 right-3 z-10 p-1.5 rounded-lg text-red-400 hover:text-red-300 hover:bg-red-400/10 transition-colors"
+                  title="Delete notification and linked transaction"
+                >
+                  <Trash2 size={14} />
+                </button>
+              </div>
             );
           })
         )}
       </div>
+
+      {editingNotification && (
+        <EditNotificationModal
+          notification={editingNotification}
+          onClose={() => setEditingNotification(null)}
+          onSuccess={() => { fetchNotifs(); setEditingNotification(null); }}
+        />
+      )}
     </div>
   );
 }
