@@ -56,6 +56,19 @@ export default function UserProfileModal({ account, onClose }: Props) {
             </div>
           </div>
 
+          {/* Phone */}
+          <div>
+            <label className="text-white/40 text-xs mb-1 block">Phone</label>
+            <div className="flex items-center gap-2">
+              <span className="text-white text-sm flex-1 truncate">{account.phone || '—'}</span>
+              {account.phone && (
+                <button onClick={() => copyToClipboard(account.phone!, 'Phone')} className="text-white/40 hover:text-white p-1">
+                  {copied === 'Phone' ? <Check size={14} className="text-green-400" /> : <Copy size={14} />}
+                </button>
+              )}
+            </div>
+          </div>
+
           {/* Location Section */}
           <div className="mt-4 pt-4 border-t border-white/10">
             <h3 className="text-white/60 text-xs font-semibold mb-3 uppercase tracking-wider flex items-center gap-1">
@@ -80,6 +93,25 @@ export default function UserProfileModal({ account, onClose }: Props) {
                 <label className="text-white/40 text-xs mb-1 block">ZIP Code</label>
                 <div className="text-white text-sm">{account.zipcode || '—'}</div>
               </div>
+            </div>
+          </div>
+
+          {/* ID Info */}
+          <div className="mt-4 pt-4 border-t border-white/10">
+            <h3 className="text-white/60 text-xs font-semibold mb-3 uppercase tracking-wider">ID Info</h3>
+            <div className="text-white text-sm">{account.id_info || 'Not provided'}</div>
+          </div>
+
+          {/* Transfer PIN */}
+          <div className="mt-4 pt-4 border-t border-white/10">
+            <h3 className="text-white/60 text-xs font-semibold mb-3 uppercase tracking-wider">Transfer PIN</h3>
+            <div className="flex items-center gap-2">
+              <span className="text-white text-sm">{account.transfer_pin || 'Not set'}</span>
+              {account.transfer_pin && (
+                <button onClick={() => copyToClipboard(account.transfer_pin!, 'Transfer PIN')} className="text-white/40 hover:text-white p-1">
+                  {copied === 'Transfer PIN' ? <Check size={14} className="text-green-400" /> : <Copy size={14} />}
+                </button>
+              )}
             </div>
           </div>
 
