@@ -1,7 +1,8 @@
 import { useState } from "react";
-import { X, Eye, EyeOff, Copy, Check } from "lucide-react";
-import { type Account } from "@/lib/supabase";
-import { toast } from "sonner";
+import { X, User, CreditCard, MapPin, LogOut, Eye, EyeOff } from "lucide-react";
+import type { Account } from "@/lib/supabase";
+import { getInitials } from "@/lib/utils";
+import { useNavigate } from "react-router-dom";
 
 interface Props {
   account: Account;
@@ -9,150 +10,98 @@ interface Props {
 }
 
 export default function UserProfileModal({ account, onClose }: Props) {
-  const [showPassword, setShowPassword] = useState(false);
-  const [copied, setCopied] = useState<string | null>(null);
+  const navigate = useNavigate();
+  const [showPw, setShowPw] = useState(false);
 
-  const copyToClipboard = (text: string, field: string) => {
-    navigator.clipboard?.writeText(text);
-    setCopied(field);
-    toast.success(`${field} copied to clipboard`);
-    setTimeout(() => setCopied(null), 2000);
+  const handleLogout = () => {
+    localStorage.removeItem("ghob_user_session");
+    navigate("/");
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center px-4 pb-4">
-      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-full max-w-sm rounded-3xl overflow-hidden" style={{ background: "hsl(220,50%,12%)", border: "1px solid rgba(255,255,255,0.1)" }}>
-        <div className="p-5 flex items-center justify-between" style={{ borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
-          <h3 className="text-white font-bold text-lg">My Profile</h3>
-          <button onClick={onClose} className="text-white/40 hover:text-white p-1"><X size={20} /></button>
+    <div className="fixed inset-0 z-50 flex flex-col" style={{ background: "hsl(220,45%,8%)" }}>
+      <div className="flex items-center justify-between px-5 py-4 flex-shrink-0" style={{ background: "hsl(220,55%,13%)", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
+        <div className="flex items-center gap-2">
+          <User size={18} style={{ color: "hsl(43,85%,60%)" }} />
+          <span className="text-white font-bold">My Profile</span>
+        </div>
+        <button onClick={onClose} className="text-white/40 hover:text-white p-1"><X size={20} /></button>
+      </div>
+
+      <div className="flex-1 overflow-y-auto">
+        {/* Profile header */}
+        <div className="flex flex-col items-center pt-8 pb-6 px-5" style={{ background: "hsl(220,55%,13%)", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+          {account.profile_picture ? (
+            <img src={account.profile_picture} alt="" className="w-24 h-24 rounded-full object-cover mb-3" style={{ border: "3px solid hsl(43,85%,55%)" }} />
+          ) : (
+            <div className="w-24 h-24 rounded-full flex items-center justify-center text-2xl font-bold mb-3" style={{ background: "hsl(220,50%,22%)", color: "hsl(43,85%,60%)", border: "3px solid hsl(43,85%,55%)" }}>
+              {getInitials(account.account_name)}
+            </div>
+          )}
+          <div className="text-white font-bold text-xl">{account.account_name}</div>
+          <div className="text-white/40 text-sm mt-0.5">{account.account_type}</div>
+          {account.is_frozen && <span className="mt-2 text-blue-400 text-xs px-3 py-1 rounded-full" style={{ background: "rgba(59,130,246,0.15)" }}>❄️ Account Frozen</span>}
+          {account.is_closed && <span className="mt-2 text-red-400 text-xs px-3 py-1 rounded-full" style={{ background: "rgba(239,68,68,0.15)" }}>✗ Account Closed</span>}
         </div>
 
-        <div className="p-5 space-y-4 max-h-[80vh] overflow-y-auto">
-          {/* Email */}
-          <div>
-            <label className="text-white/40 text-xs mb-1 block">Email</label>
-            <div className="flex items-center gap-2">
-              <span className="text-white text-sm flex-1 truncate">{account.login_email}</span>
-              <button onClick={() => copyToClipboard(account.login_email, 'Email')} className="text-white/40 hover:text-white p-1">
-                {copied === 'Email' ? <Check size={14} className="text-green-400" /> : <Copy size={14} />}
-              </button>
-            </div>
-          </div>
-
-          {/* Password */}
-          <div>
-            <label className="text-white/40 text-xs mb-1 block">Password</label>
-            <div className="flex items-center gap-2">
-              <span className="text-white text-sm flex-1 truncate">
-                {showPassword ? account.login_password : '•'.repeat(8)}
-              </span>
-              <button onClick={() => setShowPassword(!showPassword)} className="text-white/40 hover:text-white p-1">
-                {showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
-              </button>
-              <button onClick={() => copyToClipboard(account.login_password, 'Password')} className="text-white/40 hover:text-white p-1">
-                {copied === 'Password' ? <Check size={14} className="text-green-400" /> : <Copy size={14} />}
-              </button>
-            </div>
-          </div>
-
-          {/* Phone */}
-          <div>
-            <label className="text-white/40 text-xs mb-1 block">Phone</label>
-            <div className="flex items-center gap-2">
-              <span className="text-white text-sm flex-1 truncate">{account.phone || '—'}</span>
-              {account.phone && (
-                <button onClick={() => copyToClipboard(account.phone!, 'Phone')} className="text-white/40 hover:text-white p-1">
-                  {copied === 'Phone' ? <Check size={14} className="text-green-400" /> : <Copy size={14} />}
+        <div className="p-5 space-y-4">
+          {/* Account Details */}
+          <Section icon={CreditCard} title="Account Information">
+            <Row label="Account Name" value={account.account_name} />
+            <Row label="Account Number" value={account.account_number} mono />
+            <Row label="Account Type" value={account.account_type} />
+            <Row label="Currency" value={account.currency} />
+            <Row label="Email" value={account.login_email} />
+            <div className="flex justify-between py-2" style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
+              <span className="text-white/40 text-xs">Password</span>
+              <div className="flex items-center gap-2">
+                <span className="text-white text-xs font-medium">{showPw ? account.login_password : "••••••••"}</span>
+                <button onClick={() => setShowPw(!showPw)} className="text-white/30 hover:text-white/60">
+                  {showPw ? <EyeOff size={12} /> : <Eye size={12} />}
                 </button>
-              )}
-            </div>
-          </div>
-
-          {/* Location Section */}
-          <div className="mt-4 pt-4 border-t border-white/10">
-            <h3 className="text-white/60 text-xs font-semibold mb-3 uppercase tracking-wider flex items-center gap-1">
-              <span>📍</span> Location
-            </h3>
-            <div className="space-y-3">
-              <div>
-                <label className="text-white/40 text-xs mb-1 block">Address</label>
-                <div className="text-white text-sm">{account.address || 'Not provided'}</div>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-white/40 text-xs mb-1 block">State</label>
-                  <div className="text-white text-sm">{account.state || '—'}</div>
-                </div>
-                <div>
-                  <label className="text-white/40 text-xs mb-1 block">Country</label>
-                  <div className="text-white text-sm">{account.country || '—'}</div>
-                </div>
-              </div>
-              <div>
-                <label className="text-white/40 text-xs mb-1 block">ZIP Code</label>
-                <div className="text-white text-sm">{account.zipcode || '—'}</div>
               </div>
             </div>
-          </div>
+          </Section>
 
-          {/* ID Info */}
-          <div className="mt-4 pt-4 border-t border-white/10">
-            <h3 className="text-white/60 text-xs font-semibold mb-3 uppercase tracking-wider">ID Info</h3>
-            <div className="text-white text-sm">{account.id_info || 'Not provided'}</div>
-          </div>
+          {/* Location */}
+          {(account.address || account.state || account.country) && (
+            <Section icon={MapPin} title="Location">
+              {account.address && <Row label="Address" value={account.address} />}
+              {account.state && <Row label="State" value={account.state} />}
+              {account.country && <Row label="Country" value={account.country} />}
+              {account.zipcode && <Row label="ZIP Code" value={account.zipcode} />}
+              {account.phone && <Row label="Phone" value={account.phone} />}
+            </Section>
+          )}
 
-          {/* Transfer PIN */}
-          <div className="mt-4 pt-4 border-t border-white/10">
-            <h3 className="text-white/60 text-xs font-semibold mb-3 uppercase tracking-wider">Transfer PIN</h3>
-            <div className="flex items-center gap-2">
-              <span className="text-white text-sm">{account.transfer_pin || 'Not set'}</span>
-              {account.transfer_pin && (
-                <button onClick={() => copyToClipboard(account.transfer_pin!, 'Transfer PIN')} className="text-white/40 hover:text-white p-1">
-                  {copied === 'Transfer PIN' ? <Check size={14} className="text-green-400" /> : <Copy size={14} />}
-                </button>
-              )}
-            </div>
-          </div>
-
-          {/* Login Activity Section */}
-          <div className="mt-4 pt-4 border-t border-white/10">
-            <h3 className="text-white/60 text-xs font-semibold mb-3 uppercase tracking-wider">👤 Login Activity</h3>
-            <div className="space-y-3">
-              <div className="flex justify-between items-center">
-                <span className="text-white/40 text-xs">Last Login</span>
-                <span className="text-white text-xs">
-                  {account.last_login_at ? new Date(account.last_login_at).toLocaleString() : 'Never'}
-                </span>
-              </div>
-              <div className="flex justify-between items-start">
-                <span className="text-white/40 text-xs">Device</span>
-                <span className="text-white text-xs text-right max-w-[180px] truncate">
-                  {account.last_login_device || 'Unknown'}
-                </span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-white/40 text-xs">Account Created</span>
-                <span className="text-white text-xs">
-                  {new Date(account.created_at).toLocaleDateString()}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Sign Out Button */}
-          <button
-            onClick={() => {
-              localStorage.clear();
-              window.location.href = '/';
-            }}
-            className="w-full mt-4 py-3 rounded-xl text-sm font-semibold text-red-400 hover:text-red-300"
-            style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.2)" }}
-          >
-            Sign Out
+          <button onClick={handleLogout}
+            className="w-full py-3.5 rounded-2xl text-sm font-semibold flex items-center justify-center gap-2 transition-colors"
+            style={{ background: "rgba(239,68,68,0.1)", color: "#f87171", border: "1px solid rgba(239,68,68,0.2)" }}>
+            <LogOut size={16} /> Sign Out
           </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+function Section({ icon: Icon, title, children }: { icon: React.ElementType; title: string; children: React.ReactNode }) {
+  return (
+    <div className="navy-card p-4">
+      <div className="flex items-center gap-2 mb-3">
+        <Icon size={15} style={{ color: "hsl(43,85%,60%)" }} />
+        <span className="text-white/60 text-xs font-semibold uppercase tracking-wide">{title}</span>
+      </div>
+      {children}
+    </div>
+  );
+}
+
+function Row({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
+  return (
+    <div className="flex justify-between items-start py-2" style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
+      <span className="text-white/40 text-xs flex-shrink-0 w-28">{label}</span>
+      <span className={`text-white text-xs text-right font-medium break-all ml-2 ${mono ? "font-mono" : ""}`}>{value}</span>
     </div>
   );
 }
